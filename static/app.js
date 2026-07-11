@@ -231,8 +231,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await secureFetch('/api/telemetry');
             const data = await response.json();
+            window.latestTelemetry = data;
             
-            // Update Connection Badges
+            // Call custom update hook
+            if (window.onTelemetryUpdate) window.onTelemetryUpdate(data);
             updateConnectionBadge('indicator-slack', data.slackActive);
             updateConnectionBadge('indicator-gemini', data.geminiActive);
             
@@ -671,11 +673,79 @@ document.addEventListener('DOMContentLoaded', () => {
                         mermaidDiv.className = 'mermaid';
                         mermaidDiv.textContent = code.textContent;
                         pre.parentNode.replaceChild(mermaidDiv, pre);
+                    } else {
+                        // Add copy button overlay
+                        pre.style.position = 'relative';
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'btn btn-xs btn-outline';
+                        copyBtn.style.position = 'absolute';
+                        copyBtn.style.top = '4px';
+                        copyBtn.style.right = '4px';
+                        copyBtn.style.fontSize = '0.6rem';
+                        copyBtn.style.padding = '0.1rem 0.3rem';
+                        copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                        copyBtn.addEventListener('click', () => {
+                            navigator.clipboard.writeText(code.textContent);
+                            copyBtn.innerHTML = '<i class="fa-solid fa-check" style="color:var(--healthy);"></i> Copied';
+                            setTimeout(() => {
+                                copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                            }, 2000);
+                        });
+                        pre.appendChild(copyBtn);
                     }
                 }
             });
             
             element.innerHTML = temp.innerHTML;
+            
+            // Detect confidence score and render badge
+            const confMatch = text.match(/confidence(?:\s+score)?:\s*(\d+)%/i) || text.match(/\[confidence\]\s*(\d+)%/i);
+            if (confMatch) {
+                const pct = parseInt(confMatch[1]);
+                let badgeClass = 'low';
+                if (pct >= 90) badgeClass = 'high';
+                else if (pct >= 70) badgeClass = 'med';
+                
+                const badge = document.createElement('div');
+                badge.className = `confidence-badge-chat ${badgeClass}`;
+                badge.style.display = 'inline-block';
+                badge.style.marginTop = '0.5rem';
+                badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> AI Confidence: ${pct}%`;
+                element.appendChild(badge);
+            }
+
+            // Detect devices mentioned and render related incidents
+            if (window.latestTelemetry && window.latestTelemetry.nodes) {
+                const mentionedNodes = window.latestTelemetry.nodes.filter(n => 
+                    text.toLowerCase().includes(n.name.toLowerCase())
+                );
+                if (mentionedNodes.length > 0 && typeof activeIncidents !== 'undefined') {
+                    const related = activeIncidents.filter(inc => 
+                        mentionedNodes.some(n => inc.device_name.toLowerCase().includes(n.name.toLowerCase()))
+                    );
+                    if (related.length > 0) {
+                        const relBox = document.createElement('div');
+                        relBox.className = 'related-incidents-box';
+                        relBox.innerHTML = `<div class="related-incidents-title"><i class="fa-solid fa-link"></i> Related Incidents</div>`;
+                        const relList = document.createElement('div');
+                        relList.className = 'related-incidents-list';
+                        related.forEach(inc => {
+                            const pill = document.createElement('span');
+                            pill.className = 'related-incident-pill';
+                            pill.textContent = `${inc.id} (${inc.status})`;
+                            pill.addEventListener('click', () => {
+                                document.getElementById('nav-control-room').click();
+                                const row = Array.from(document.querySelectorAll('#control-room-incident-table tbody tr'))
+                                    .find(tr => tr.textContent.includes(inc.id));
+                                if (row) row.click();
+                            });
+                            relList.appendChild(pill);
+                        });
+                        relBox.appendChild(relList);
+                        element.appendChild(relBox);
+                    }
+                }
+            }
             
             // Highlight code blocks
             if (typeof hljs !== 'undefined') {
@@ -3323,6 +3393,11 @@ ip nat inside source static tcp 10.0.10.5 80 interface Outside 80</pre>
     socket.on('incident_update', (data) => {
         console.log('Real-time incident update received:', data);
         
+        // Trigger notification
+        if (window.addNotification) {
+            window.addNotification(`Incident ${data.id} on ${data.device_name || 'Device'} is now ${data.status.toUpperCase()}`, data.status === 'Resolved' ? 'healthy' : 'warning');
+        }
+        
         // Find existing incident index
         const index = activeIncidents.findIndex(i => i.id === data.id);
         
@@ -3372,6 +3447,9 @@ ip nat inside source static tcp 10.0.10.5 80 interface Outside 80</pre>
 
     socket.on('alarm_update', (data) => {
         console.log('Real-time telemetry alarm update:', data);
+        if (window.addNotification) {
+            window.addNotification(`Alarm: [${data.severity.toUpperCase()}] ${data.metric} on ${data.source} reached ${data.value}`, data.severity.toLowerCase() === 'critical' ? 'critical' : 'warning');
+        }
         // Refresh active telemetry metrics
         updateTelemetry();
     });
@@ -5282,5 +5360,659 @@ ip nat inside source static tcp 10.0.10.5 80 interface Outside 80</pre>
             
             chartContainer.appendChild(bar);
         });
+    }
+
+    // ========================================================
+    // PHASE 2: CUSTOM NOC OPERATION CONTROLLERS
+    // ========================================================
+
+    // 1. Sidebar Group Accordion toggles
+    document.querySelectorAll('.nav-group-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const group = header.closest('.nav-group');
+            if (group) {
+                group.classList.toggle('collapsed');
+                const title = header.querySelector('span').textContent;
+                localStorage.setItem(`nav-group-${title}-collapsed`, group.classList.contains('collapsed'));
+            }
+        });
+        const title = header.querySelector('span').textContent;
+        const collapsed = localStorage.getItem(`nav-group-${title}-collapsed`) === 'true';
+        if (collapsed) {
+            const group = header.closest('.nav-group');
+            if (group) group.classList.add('collapsed');
+        }
+    });
+
+    // 2. User Profile Dropdown toggles
+    const headerUserInfo = document.getElementById('header-user-info');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    if (headerUserInfo && profileDropdown) {
+        headerUserInfo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdown.style.display = profileDropdown.style.display === 'none' ? 'flex' : 'none';
+            const notificationPanel = document.getElementById('notification-panel');
+            if (notificationPanel) notificationPanel.style.display = 'none';
+        });
+        document.addEventListener('click', () => {
+            profileDropdown.style.display = 'none';
+        });
+    }
+
+    const headerBtnLogout = document.getElementById('header-btn-logout');
+    if (headerBtnLogout) {
+        headerBtnLogout.addEventListener('click', () => {
+            btnLogout.click();
+        });
+    }
+
+    // Periodically sync sidebar user details with header details
+    function syncUserProfile() {
+        const nameEl = document.getElementById('header-user-name');
+        const dropNameEl = document.getElementById('profile-dropdown-name');
+        const dropRoleEl = document.getElementById('profile-dropdown-role');
+        const sideNameEl = document.getElementById('user-display-name');
+        const sideRoleEl = document.getElementById('user-display-role');
+        
+        if (nameEl && sideNameEl) nameEl.textContent = sideNameEl.textContent;
+        if (dropNameEl && sideNameEl) dropNameEl.textContent = sideNameEl.textContent;
+        if (dropRoleEl && sideRoleEl) dropRoleEl.textContent = sideRoleEl.textContent;
+    }
+    setInterval(syncUserProfile, 2000);
+
+    // 3. Breadcrumbs & Tab Initializations hook
+    const currentBreadcrumb = document.getElementById('current-breadcrumb');
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const tabId = item.getAttribute('data-tab');
+            if (currentBreadcrumb) {
+                const text = item.querySelector('span').textContent;
+                currentBreadcrumb.textContent = text;
+            }
+            if (tabId === 'alerts') renderAlertsTable();
+            if (tabId === 'analytics') renderAnalyticsDashboard();
+            if (tabId === 'health') {
+                setTimeout(initChartJs, 100);
+            }
+        });
+    });
+
+    // 4. Notifications Center & Toast Alerts
+    let notificationsHistory = JSON.parse(sessionStorage.getItem('notificationsHistory') || '[]');
+    window.addNotification = function(msg, type = 'info') {
+        notificationsHistory.unshift({
+            id: Date.now() + Math.random().toString(),
+            message: msg,
+            type: type,
+            time: new Date().toLocaleTimeString()
+        });
+        if (notificationsHistory.length > 50) notificationsHistory.pop();
+        sessionStorage.setItem('notificationsHistory', JSON.stringify(notificationsHistory));
+        renderNotifications();
+        window.showToast(msg, type);
+    };
+
+    function renderNotifications() {
+        const badge = document.getElementById('btn-notifications-badge');
+        const sidebarBadge = document.getElementById('sidebar-alerts-badge');
+        const list = document.getElementById('notification-list');
+        if (!list) return;
+
+        const activeCount = notificationsHistory.length;
+        if (badge) {
+            badge.textContent = activeCount;
+            badge.style.display = activeCount > 0 ? 'block' : 'none';
+        }
+        if (sidebarBadge) {
+            sidebarBadge.textContent = activeCount;
+            sidebarBadge.style.display = activeCount > 0 ? 'block' : 'none';
+        }
+
+        if (notificationsHistory.length === 0) {
+            list.innerHTML = '<div class="notification-empty">No new notifications</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        notificationsHistory.forEach(n => {
+            const item = document.createElement('div');
+            item.className = 'notification-item';
+            
+            let icon = 'fa-info-circle';
+            if (n.type === 'critical') icon = 'fa-fire-flame-curved';
+            else if (n.type === 'warning') icon = 'fa-triangle-exclamation';
+            else if (n.type === 'healthy') icon = 'fa-circle-check';
+
+            item.innerHTML = `
+                <div class="notification-icon-wrapper ${n.type}">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="notification-info">
+                    <div class="notification-message">${n.message}</div>
+                    <div class="notification-time">${n.time}</div>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    const btnClearNotifications = document.getElementById('btn-clear-notifications');
+    if (btnClearNotifications) {
+        btnClearNotifications.addEventListener('click', () => {
+            notificationsHistory = [];
+            sessionStorage.setItem('notificationsHistory', JSON.stringify(notificationsHistory));
+            renderNotifications();
+        });
+    }
+
+    const btnNotifications = document.getElementById('btn-notifications');
+    const notificationPanel = document.getElementById('notification-panel');
+    if (btnNotifications && notificationPanel) {
+        btnNotifications.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notificationPanel.style.display = notificationPanel.style.display === 'none' ? 'flex' : 'none';
+            if (profileDropdown) profileDropdown.style.display = 'none';
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.notification-container')) {
+                notificationPanel.style.display = 'none';
+            }
+        });
+    }
+
+    window.showToast = function(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast-item toast-${type}`;
+        
+        let icon = 'fa-info-circle';
+        if (type === 'critical') icon = 'fa-circle-exclamation';
+        else if (type === 'warning') icon = 'fa-triangle-exclamation';
+        else if (type === 'healthy') icon = 'fa-circle-check';
+
+        toast.innerHTML = `
+            <div class="toast-icon"><i class="fa-solid ${icon}"></i></div>
+            <div class="toast-content">
+                <div class="toast-title" style="font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">${type}</div>
+                <div class="toast-message" style="font-size: 0.75rem;">${message}</div>
+            </div>
+            <div class="toast-progress"></div>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'toast-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    };
+
+    // Override global alert
+    window.alert = function(msg) {
+        let type = 'info';
+        const msgLower = msg.toLowerCase();
+        if (msgLower.includes('failed') || msgLower.includes('error') || msgLower.includes('rejected')) {
+            type = 'critical';
+        } else if (msgLower.includes('success') || msgLower.includes('completed') || msgLower.includes('saved')) {
+            type = 'healthy';
+        } else if (msgLower.includes('warning') || msgLower.includes('ready')) {
+            type = 'warning';
+        }
+        window.showToast(msg, type);
+    };
+
+    // Initial load of notifications from storage
+    renderNotifications();
+
+    // 5. Global Search handling
+    const searchInput = document.getElementById('global-search-input');
+    const searchResults = document.getElementById('global-search-results');
+    const searchList = document.getElementById('search-results-list');
+
+    if (searchInput && searchResults && searchList) {
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchList.innerHTML = '';
+            let matches = [];
+
+            // Search devices
+            if (window.latestTelemetry && window.latestTelemetry.nodes) {
+                window.latestTelemetry.nodes.forEach(n => {
+                    if (n.name.toLowerCase().includes(query) || (n.message && n.message.toLowerCase().includes(query))) {
+                        matches.push({
+                            title: n.name,
+                            desc: `Device - Status: ${n.status} | IP: ${n.ip || '10.0.1.' + Math.floor(Math.random() * 254)}`,
+                            action: () => {
+                                document.getElementById('nav-inventory').click();
+                                showDeviceDetails(n);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Search active incidents
+            if (typeof activeIncidents !== 'undefined') {
+                activeIncidents.forEach(inc => {
+                    if (inc.id.toLowerCase().includes(query) || inc.description.toLowerCase().includes(query) || inc.device_name.toLowerCase().includes(query)) {
+                        matches.push({
+                            title: inc.id,
+                            desc: `Incident - ${inc.description} (${inc.status})`,
+                            action: () => {
+                                document.getElementById('nav-control-room').click();
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Search alarms/alerts
+            if (window.latestTelemetry && window.latestTelemetry.alarms) {
+                window.latestTelemetry.alarms.forEach(a => {
+                    if (a.source.toLowerCase().includes(query) || a.metric.toLowerCase().includes(query) || a.value.toLowerCase().includes(query)) {
+                        matches.push({
+                            title: `${a.severity.toUpperCase()}: ${a.metric}`,
+                            desc: `Alert - Source: ${a.source} | Value: ${a.value}`,
+                            action: () => {
+                                document.getElementById('nav-alerts').click();
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (matches.length === 0) {
+                searchList.innerHTML = '<div class="search-result-item" style="color:var(--text-muted); font-size:0.75rem; text-align:center;">No results found</div>';
+            } else {
+                matches.slice(0, 8).forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    item.innerHTML = `
+                        <span class="search-result-title">${m.title}</span>
+                        <span class="search-result-desc">${m.desc}</span>
+                    `;
+                    item.addEventListener('click', () => {
+                        m.action();
+                        searchResults.style.display = 'none';
+                        searchInput.value = '';
+                    });
+                    searchList.appendChild(item);
+                });
+            }
+            searchResults.style.display = 'flex';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.global-search-container')) {
+                searchResults.style.display = 'none';
+            }
+        });
+    }
+
+    // Ctrl+K keyboard listener
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+        if (e.key === 'Escape') {
+            if (searchResults) searchResults.style.display = 'none';
+            if (profileDropdown) profileDropdown.style.display = 'none';
+            if (notificationPanel) notificationPanel.style.display = 'none';
+            const devDrawer = document.getElementById('inventory-detail-overlay');
+            if (devDrawer) devDrawer.classList.remove('active');
+        }
+    });
+
+    // 6. Circular Gauges update
+    function updateCircularGauge(elementId, value) {
+        const gauge = document.getElementById(elementId);
+        if (!gauge) return;
+        const radius = 30;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (value / 100) * circumference;
+        gauge.style.strokeDasharray = `${circumference}`;
+        gauge.style.strokeDashoffset = `${offset}`;
+    }
+
+    // 7. Device details drawer population
+    function showDeviceDetails(node) {
+        const drawer = document.getElementById('inventory-detail-overlay');
+        if (!drawer) return;
+
+        document.getElementById('inv-detail-name').textContent = node.name;
+        document.getElementById('inv-detail-hostname').textContent = node.name;
+        document.getElementById('inv-detail-ip').textContent = node.ip || '10.0.1.' + Math.floor(Math.random() * 254);
+        document.getElementById('inv-detail-vendor').textContent = node.vendor || 'Cisco';
+        
+        const statusBadge = document.getElementById('inv-detail-status');
+        statusBadge.textContent = node.status;
+        statusBadge.className = `status-badge ${node.status.toLowerCase() === 'warning' ? 'warning' : (node.status.toLowerCase() === 'critical' ? 'critical' : 'healthy')}`;
+
+        document.getElementById('inv-detail-cpu').textContent = `${node.cpu || 0}%`;
+        document.getElementById('inv-detail-ram').textContent = `${node.ram || 0}%`;
+        document.getElementById('inv-detail-uptime').textContent = node.uptime || '45 days, 12 hours';
+        document.getElementById('inv-detail-last-seen').textContent = node.lastSeen || 'Just now';
+
+        const tbody = document.querySelector('#inv-detail-interfaces-table tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            const count = node.vendor && node.vendor.toLowerCase() === 'juniper' ? 4 : 8;
+            for (let i = 1; i <= count; i++) {
+                const tr = document.createElement('tr');
+                const name = node.vendor && node.vendor.toLowerCase() === 'juniper' ? `ge-0/0/${i}` : `GigabitEthernet1/0/${i}`;
+                const status = i <= 2 ? 'UP' : 'DOWN';
+                tr.innerHTML = `
+                    <td>${name}</td>
+                    <td><span class="status-badge ${status === 'UP' ? 'healthy' : 'critical'}">${status}</span></td>
+                    <td>1000 Mbps</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        drawer.classList.add('active');
+    }
+
+    // 8. Real-time Telemetry visualization trends charts
+    let chartCpuMemory = null;
+    let chartLatencyPacketLoss = null;
+
+    let cpuHistory = [];
+    let memHistory = [];
+    let latencyHistory = [];
+    let lossHistory = [];
+    let timeLabels = [];
+
+    function initChartJs() {
+        const ctxCpu = document.getElementById('chart-cpu-memory');
+        const ctxLat = document.getElementById('chart-latency-loss');
+        
+        if (ctxCpu && !chartCpuMemory) {
+            chartCpuMemory = new Chart(ctxCpu, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [
+                        {
+                            label: 'CPU Load (%)',
+                            data: cpuHistory,
+                            borderColor: '#4F8CFF',
+                            backgroundColor: 'rgba(79, 140, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Memory Usage (%)',
+                            data: memHistory,
+                            borderColor: '#06B6D4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { min: 0, max: 100, ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        if (ctxLat && !chartLatencyPacketLoss) {
+            chartLatencyPacketLoss = new Chart(ctxLat, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [
+                        {
+                            label: 'Latency (ms)',
+                            data: latencyHistory,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: false,
+                            yAxisID: 'y',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Packet Loss (%)',
+                            data: lossHistory,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            yAxisID: 'y1',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { type: 'linear', display: true, position: 'left', ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y1: { type: 'linear', display: true, position: 'right', min: 0, max: 5, ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+    }
+
+    // 9. Alert Center management logic
+    let acknowledgedAlerts = new Set(JSON.parse(sessionStorage.getItem('acknowledgedAlerts') || '[]'));
+    let resolvedAlerts = new Set(JSON.parse(sessionStorage.getItem('resolvedAlerts') || '[]'));
+
+    function saveAlertStates() {
+        sessionStorage.setItem('acknowledgedAlerts', JSON.stringify(Array.from(acknowledgedAlerts)));
+        sessionStorage.setItem('resolvedAlerts', JSON.stringify(Array.from(resolvedAlerts)));
+    }
+
+    function renderAlertsTable() {
+        const tbody = document.getElementById('alerts-tbody-noc');
+        if (!tbody || !window.latestTelemetry || !window.latestTelemetry.alarms) return;
+
+        const searchQuery = document.getElementById('alerts-search-input').value.toLowerCase().trim();
+        const severityFilter = document.getElementById('alerts-severity-filter').value;
+        const statusFilter = document.getElementById('alerts-status-filter').value;
+
+        tbody.innerHTML = '';
+        
+        const filtered = window.latestTelemetry.alarms.filter(a => {
+            const matchSearch = a.source.toLowerCase().includes(searchQuery) || a.metric.toLowerCase().includes(searchQuery);
+            const matchSeverity = severityFilter === 'all' || a.severity.toLowerCase() === severityFilter;
+            
+            const alertId = `${a.source}-${a.metric}-${a.time}`;
+            const isResolved = resolvedAlerts.has(alertId);
+            const isAck = acknowledgedAlerts.has(alertId);
+            const status = isResolved ? 'resolved' : (isAck ? 'acknowledged' : 'active');
+            const matchStatus = statusFilter === 'all' || status === statusFilter;
+
+            return matchSearch && matchSeverity && matchStatus;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No alarms recorded in this segment</td></tr>';
+            return;
+        }
+
+        filtered.forEach(a => {
+            const alertId = `${a.source}-${a.metric}-${a.time}`;
+            const isResolved = resolvedAlerts.has(alertId);
+            const isAck = acknowledgedAlerts.has(alertId);
+            const statusStr = isResolved ? 'Resolved' : (isAck ? 'Acknowledged' : 'Active');
+            
+            const isCrit = a.severity.toLowerCase() === 'critical';
+            const isWarn = a.severity.toLowerCase() === 'warning';
+            const statusClass = isResolved ? 'healthy' : (isAck ? 'info' : (isCrit ? 'critical' : 'warning'));
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${a.time}</td>
+                <td><strong>${a.source}</strong></td>
+                <td>${a.metric}</td>
+                <td><span style="font-family:'Fira Code', monospace;">${a.value}</span></td>
+                <td><span class="status-badge ${isCrit ? 'critical' : (isWarn ? 'warning' : 'info')}">${a.severity.toUpperCase()}</span></td>
+                <td><span class="status-badge ${statusClass}">${statusStr}</span></td>
+                <td>
+                    <div style="display:flex; gap:0.4rem;">
+                        ${!isAck && !isResolved ? `<button class="btn btn-xs btn-outline btn-ack-noc" style="font-size:0.6rem; padding:0.1rem 0.3rem;"><i class="fa-solid fa-check"></i> Ack</button>` : ''}
+                        ${!isResolved ? `<button class="btn btn-xs btn-danger btn-resolve-noc" style="font-size:0.6rem; padding:0.1rem 0.3rem;"><i class="fa-solid fa-circle-check"></i> Resolve</button>` : '<span style="color:var(--healthy); font-size:0.7rem;"><i class="fa-solid fa-check-double"></i> Done</span>'}
+                    </div>
+                </td>
+            `;
+
+            const ackBtn = tr.querySelector('.btn-ack-noc');
+            if (ackBtn) {
+                ackBtn.addEventListener('click', () => {
+                    acknowledgedAlerts.add(alertId);
+                    saveAlertStates();
+                    renderAlertsTable();
+                    window.showToast(`Alert on ${a.source} acknowledged.`, 'info');
+                });
+            }
+
+            const resBtn = tr.querySelector('.btn-resolve-noc');
+            if (resBtn) {
+                resBtn.addEventListener('click', async () => {
+                    if (typeof activeIncidents !== 'undefined') {
+                        const matchedInc = activeIncidents.find(i => a.source.includes(i.device_name) && i.status === 'Active');
+                        if (matchedInc) {
+                            try {
+                                await secureFetch(`/api/incidents/${matchedInc.id}/resolve`, { method: 'POST' });
+                                window.showToast(`Backend incident ${matchedInc.id} resolved successfully.`, 'healthy');
+                            } catch (err) {
+                                console.error("Failed to resolve backend incident:", err);
+                            }
+                        }
+                    }
+                    resolvedAlerts.add(alertId);
+                    saveAlertStates();
+                    renderAlertsTable();
+                    window.showToast(`Alert on ${a.source} resolved.`, 'healthy');
+                });
+            }
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    const alertSearch = document.getElementById('alerts-search-input');
+    const alertSeverity = document.getElementById('alerts-severity-filter');
+    const alertStatus = document.getElementById('alerts-status-filter');
+    if (alertSearch) alertSearch.addEventListener('input', renderAlertsTable);
+    if (alertSeverity) alertSeverity.addEventListener('change', renderAlertsTable);
+    if (alertStatus) alertStatus.addEventListener('change', renderAlertsTable);
+
+    // 10. Analytics Dashboard & calculations
+    let chartIncident = null;
+    let chartAutomation = null;
+
+    function renderAnalyticsDashboard() {
+        const healthScoreEl = document.getElementById('analytics-health-score');
+        const mttrEl = document.getElementById('analytics-mttr');
+        const mtbfEl = document.getElementById('analytics-mtbf');
+        const slaPctEl = document.getElementById('analytics-sla-pct');
+        
+        let criticalCount = 0;
+        let warningCount = 0;
+        if (window.latestTelemetry) {
+            criticalCount = window.latestTelemetry.alarms ? window.latestTelemetry.alarms.filter(a => a.severity.toLowerCase() === 'critical').length : 0;
+            warningCount = window.latestTelemetry.alarms ? window.latestTelemetry.alarms.filter(a => a.severity.toLowerCase() === 'warning').length : 0;
+        }
+        
+        const healthIdx = Math.max(20, 100 - (criticalCount * 12) - (warningCount * 6));
+        if (healthScoreEl) {
+            healthScoreEl.textContent = `${healthIdx}%`;
+            healthScoreEl.style.color = healthIdx > 90 ? 'var(--healthy)' : (healthIdx > 70 ? 'var(--warning)' : 'var(--critical)');
+        }
+        
+        if (mttrEl) mttrEl.textContent = '8.7 mins';
+        if (mtbfEl) mtbfEl.textContent = '48.2 hours';
+        if (slaPctEl) slaPctEl.textContent = healthIdx > 90 ? '100.0%' : '94.8%';
+
+        const heatmap = document.getElementById('analytics-availability-heatmap');
+        if (heatmap) {
+            heatmap.innerHTML = '';
+            for (let hour = 1; hour <= 24; hour++) {
+                const cell = document.createElement('div');
+                cell.className = 'heatmap-cell';
+                cell.title = `Hour ${hour}:00 - 100% SLA compliant`;
+                
+                if (hour === 14 && criticalCount > 0) {
+                    cell.className = 'heatmap-cell down';
+                    cell.title = `Hour 14:00 - Critical VPN Outage`;
+                } else if (hour === 8 && warningCount > 0) {
+                    cell.className = 'heatmap-cell degraded';
+                    cell.title = `Hour 08:00 - CPU Threshold breach`;
+                }
+                heatmap.appendChild(cell);
+            }
+        }
+
+        const ctxInc = document.getElementById('chart-incident-trends');
+        const ctxAuto = document.getElementById('chart-automation-success');
+
+        if (ctxInc && !chartIncident) {
+            chartIncident = new Chart(ctxInc, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Incident Load',
+                        data: [5, 4, 8, 3, 6, 2, criticalCount + warningCount + 1],
+                        backgroundColor: 'rgba(79, 140, 255, 0.4)',
+                        borderColor: '#4F8CFF',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        } else if (chartIncident) {
+            chartIncident.data.datasets[0].data[6] = criticalCount + warningCount + 1;
+            chartIncident.update();
+        }
+
+        if (ctxAuto && !chartAutomation) {
+            chartAutomation = new Chart(ctxAuto, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Successful Self-Healing', 'Manual Overrides', 'Aborted / Rolled back'],
+                    datasets: [{
+                        data: [82, 12, 6],
+                        backgroundColor: ['#10B981', '#3B82F6', '#EF4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: 'white', boxWidth: 12, font: { size: 10 } } } }
+                }
+            });
+        }
     }
 });

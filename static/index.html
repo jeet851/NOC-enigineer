@@ -11,11 +11,12 @@
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Third-party Chat Enhancements -->
+    <!-- Third-party Chat & Chart Enhancements -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Real-time Socket.IO Client Link -->
     <script src="/socket.io.min.js"></script>
@@ -88,83 +89,157 @@
             </div>
             
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="dashboard" id="nav-dashboard">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </button>
-                <button class="nav-item" data-tab="control-room" id="nav-control-room">
-                    <i class="fa-solid fa-kit-medical"></i>
-                    <span>Live Incidents</span>
-                    <span class="badge count-badge" id="active-incidents-count">2</span>
-                </button>
-                <button class="nav-item" data-tab="investigation" id="nav-investigation">
-                    <i class="fa-solid fa-radar"></i>
-                    <span>AI Investigation</span>
-                </button>
-                <button class="nav-item" data-tab="health" id="nav-health">
-                    <i class="fa-solid fa-heart-pulse"></i>
-                    <span>Network Health</span>
-                </button>
-                <button class="nav-item" data-tab="topology" id="nav-topology">
-                    <i class="fa-solid fa-circle-nodes"></i>
-                    <span>Topology</span>
-                </button>
-                <button class="nav-item" data-tab="inventory" id="nav-inventory">
-                    <i class="fa-solid fa-server"></i>
-                    <span>Device Inventory</span>
-                </button>
-                <button class="nav-item" data-tab="cli" id="nav-cli">
-                    <i class="fa-solid fa-terminal"></i>
-                    <span>Live CLI</span>
-                </button>
-                <button class="nav-item" data-tab="packets" id="nav-packets">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i>
-                    <span>Packet Analyzer</span>
-                </button>
-                <button class="nav-item" data-tab="congestion" id="nav-congestion">
-                    <i class="fa-solid fa-shuffle"></i>
-                    <span>Traffic Analytics</span>
-                </button>
-                <button class="nav-item" data-tab="automation" id="nav-automation">
-                    <i class="fa-solid fa-file-shield"></i>
-                    <span>Config Manager</span>
-                </button>
-                <button class="nav-item" data-tab="playbooks" id="nav-playbooks">
-                    <i class="fa-solid fa-gears"></i>
-                    <span>Automation Playbooks</span>
-                </button>
-                <button class="nav-item" data-tab="remediation" id="nav-remediation">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span>Auto Remediation</span>
-                </button>
-                <button class="nav-item" data-tab="reports" id="nav-reports">
-                    <i class="fa-solid fa-file-invoice"></i>
-                    <span>Incident Reports</span>
-                </button>
-                <button class="nav-item" data-tab="kb" id="nav-kb">
-                    <i class="fa-solid fa-book-bookmark"></i>
-                    <span>Knowledge Base</span>
-                </button>
-                <button class="nav-item" data-tab="vault" id="nav-vault">
-                    <i class="fa-solid fa-vault"></i>
-                    <span>Credential Vault</span>
-                </button>
-                <button class="nav-item" data-tab="audit" id="nav-audit">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                    <span>Security Audit Logs</span>
-                </button>
-                <button class="nav-item" data-tab="zero-trust" id="nav-zero-trust">
-                    <i class="fa-solid fa-fingerprint"></i>
-                    <span>Zero Trust Center</span>
-                </button>
-                <button class="nav-item" data-tab="scale" id="nav-scale">
-                    <i class="fa-solid fa-gauge-high"></i>
-                    <span>System Scale & Tuning</span>
-                </button>
-                <button class="nav-item" data-tab="settings" id="nav-settings">
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Settings</span>
-                </button>
+                <!-- Operations Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <span>Operations</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item active" data-tab="dashboard" id="nav-dashboard">
+                            <i class="fa-solid fa-chart-line"></i>
+                            <span>Dashboard</span>
+                        </button>
+                        <button class="nav-item" data-tab="control-room" id="nav-control-room">
+                            <i class="fa-solid fa-kit-medical"></i>
+                            <span>Live Incidents</span>
+                            <span class="badge count-badge" id="active-incidents-count">2</span>
+                        </button>
+                        <button class="nav-item" data-tab="health" id="nav-health">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                            <span>Network Health</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Network Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-network-wired"></i>
+                        <span>Network</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item" data-tab="topology" id="nav-topology">
+                            <i class="fa-solid fa-circle-nodes"></i>
+                            <span>Topology</span>
+                        </button>
+                        <button class="nav-item" data-tab="inventory" id="nav-inventory">
+                            <i class="fa-solid fa-server"></i>
+                            <span>Device Inventory</span>
+                        </button>
+                        <button class="nav-item" data-tab="congestion" id="nav-congestion">
+                            <i class="fa-solid fa-shuffle"></i>
+                            <span>Traffic Analytics</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Investigation Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-magnifying-glass-chart"></i>
+                        <span>Investigation</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item" data-tab="investigation" id="nav-investigation">
+                            <i class="fa-solid fa-radar"></i>
+                            <span>AI Investigation</span>
+                        </button>
+                        <button class="nav-item" data-tab="alerts" id="nav-alerts">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>Alert Center</span>
+                            <span class="badge count-badge" id="sidebar-alerts-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--critical);">0</span>
+                        </button>
+                        <button class="nav-item" data-tab="packets" id="nav-packets">
+                            <i class="fa-solid fa-magnifying-glass-chart"></i>
+                            <span>Packet Analyzer</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tools Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                        <span>Tools</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item" data-tab="cli" id="nav-cli">
+                            <i class="fa-solid fa-terminal"></i>
+                            <span>Live CLI</span>
+                        </button>
+                        <button class="nav-item" data-tab="automation" id="nav-automation">
+                            <i class="fa-solid fa-file-shield"></i>
+                            <span>Config Manager</span>
+                        </button>
+                        <button class="nav-item" data-tab="playbooks" id="nav-playbooks">
+                            <i class="fa-solid fa-gears"></i>
+                            <span>Automation Playbooks</span>
+                        </button>
+                        <button class="nav-item" data-tab="remediation" id="nav-remediation">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Auto Remediation</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Intelligence Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-brain"></i>
+                        <span>Intelligence</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item" data-tab="reports" id="nav-reports">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <span>Incident Reports</span>
+                        </button>
+                        <button class="nav-item" data-tab="kb" id="nav-kb">
+                            <i class="fa-solid fa-book-bookmark"></i>
+                            <span>Knowledge Base</span>
+                        </button>
+                        <button class="nav-item" data-tab="analytics" id="nav-analytics">
+                            <i class="fa-solid fa-chart-simple"></i>
+                            <span>Analytics Dashboard</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Security Group -->
+                <div class="nav-group">
+                    <div class="nav-group-header">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Security & Admin</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <button class="nav-item" data-tab="vault" id="nav-vault">
+                            <i class="fa-solid fa-vault"></i>
+                            <span>Credential Vault</span>
+                        </button>
+                        <button class="nav-item" data-tab="audit" id="nav-audit">
+                            <i class="fa-solid fa-clipboard-list"></i>
+                            <span>Security Audit Logs</span>
+                        </button>
+                        <button class="nav-item" data-tab="zero-trust" id="nav-zero-trust">
+                            <i class="fa-solid fa-fingerprint"></i>
+                            <span>Zero Trust Center</span>
+                        </button>
+                        <button class="nav-item" data-tab="scale" id="nav-scale">
+                            <i class="fa-solid fa-gauge-high"></i>
+                            <span>System Scale & Tuning</span>
+                        </button>
+                        <button class="nav-item" data-tab="settings" id="nav-settings">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Settings</span>
+                        </button>
+                    </div>
+                </div>
             </nav>
             
             <div class="sidebar-footer">
@@ -185,9 +260,26 @@
         <!-- TOP NAVIGATION -->
         <header class="app-header">
             <div class="header-left">
-                <div class="global-search">
-                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                    <input type="text" placeholder="Global search network objects...">
+                <!-- Breadcrumbs -->
+                <div class="breadcrumbs" id="breadcrumbs">
+                    <span class="breadcrumb-item">NOC</span>
+                    <i class="fa-solid fa-chevron-right separator"></i>
+                    <span class="breadcrumb-item active" id="current-breadcrumb">Dashboard</span>
+                </div>
+
+                <!-- Global Search Container -->
+                <div class="global-search-container" style="position: relative;">
+                    <div class="global-search">
+                        <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                        <input type="text" id="global-search-input" placeholder="Global search... (Ctrl+K)">
+                    </div>
+                    <!-- Global Search Results Dropdown -->
+                    <div class="search-results-dropdown" id="global-search-results" style="display: none;">
+                        <div class="search-results-header">Search Results</div>
+                        <div class="search-results-list" id="search-results-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="indicator" id="indicator-workspace" title="Active Workspace Segment">
@@ -202,7 +294,7 @@
 
                 <div class="indicator" id="indicator-health-pct" title="Global Infrastructure Health">
                     <i class="fa-solid fa-heart-pulse" style="color: var(--healthy);"></i>
-                    <span style="font-size: 0.75rem; color: var(--text-normal);">Health: <strong style="color: var(--healthy);">96.4%</strong></span>
+                    <span style="font-size: 0.75rem; color: var(--text-normal);">Health: <strong style="color: var(--healthy);" id="header-health-pct-val">96.4%</strong></span>
                 </div>
 
                 <div class="indicator" id="indicator-ai-mode" title="AI Operating Mode">
@@ -238,15 +330,44 @@
                     --:--:--
                 </div>
 
-                <div id="header-user-info" style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; border-left: 1px solid var(--border-color); padding-left: 1rem;">
-                    <i class="fa-solid fa-user-gear" style="color: var(--primary);"></i>
-                    <span id="header-user-name" style="color: var(--text-light); font-weight: 600;">Admin</span>
+                <!-- User Profile Container -->
+                <div class="user-profile-container" style="position: relative;">
+                    <div id="header-user-info" style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; border-left: 1px solid var(--border-color); padding-left: 1rem; cursor: pointer; user-select: none;">
+                        <i class="fa-solid fa-user-gear" style="color: var(--primary);"></i>
+                        <span id="header-user-name" style="color: var(--text-light); font-weight: 600;">Admin</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.6rem; color: var(--text-muted);"></i>
+                    </div>
+                    <!-- User Profile Dropdown -->
+                    <div class="profile-dropdown" id="profile-dropdown" style="display: none;">
+                        <div class="profile-dropdown-header">
+                            <strong id="profile-dropdown-name">Operator</strong>
+                            <span id="profile-dropdown-role">Guest Mode</span>
+                        </div>
+                        <div class="profile-dropdown-divider"></div>
+                        <button class="profile-dropdown-item" id="header-btn-logout">
+                            <i class="fa-solid fa-power-off" style="color: var(--critical);"></i> Logout
+                        </button>
+                    </div>
                 </div>
 
-                <button class="btn btn-icon btn-sm" id="btn-notifications" title="System Alerts" style="background: transparent; border: none; position: relative;">
-                    <i class="fa-solid fa-bell" style="font-size: 1rem;"></i>
-                    <span class="status-indicator online" style="position: absolute; top: 0; right: 0; background: var(--critical);"></span>
-                </button>
+                <!-- Notification Container -->
+                <div class="notification-container" style="position: relative;">
+                    <button class="btn btn-icon btn-sm" id="btn-notifications" title="System Alerts" style="background: transparent; border: none; position: relative;">
+                        <i class="fa-solid fa-bell" style="font-size: 1rem;"></i>
+                        <span class="status-indicator online" id="btn-notifications-badge" style="position: absolute; top: 0; right: 0; background: var(--critical); display: none;"></span>
+                    </button>
+                    <!-- Notification Panel -->
+                    <div class="notification-panel" id="notification-panel" style="display: none;">
+                        <div class="notification-panel-header">
+                            <span>Notifications</span>
+                            <button class="btn btn-sm btn-outline" id="btn-clear-notifications" style="font-size: 0.65rem; padding: 0.2rem 0.4rem;">Clear All</button>
+                        </div>
+                        <div class="notification-list" id="notification-list">
+                            <!-- Populated dynamically -->
+                            <div class="notification-empty">No new notifications</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -289,72 +410,215 @@
                         </div>
                     </div>
 
-                    <!-- FIRST ROW: 6 KPI CARDS -->
-                    <div class="kpi-grid">
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Devices Online</span>
-                                <i class="fa-solid fa-server kpi-icon"></i>
+                    <!-- FIRST ROW: 12-WIDGET DASHBOARD GRID -->
+                    <div class="dashboard-grid-12">
+                        <!-- Widget 1: Total Devices -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Total Devices</span>
+                                <i class="fa-solid fa-boxes-stacked"></i>
                             </div>
-                            <div class="kpi-value" id="kpi-devices-online">12 / 13</div>
-                            <div class="kpi-footer">
-                                <span class="trend-up"><i class="fa-solid fa-caret-up"></i> +1 dynamic link</span>
-                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">92%</span>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-total-devices">--</span>
+                                <div class="widget-icon-box"><i class="fa-solid fa-server"></i></div>
                             </div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Critical Alerts</span>
-                                <i class="fa-solid fa-circle-exclamation kpi-icon" style="color: var(--critical);"></i>
-                            </div>
-                            <div class="kpi-value" style="color: var(--critical);" id="kpi-critical-alerts">1</div>
-                            <div class="kpi-footer">
-                                <span class="trend-down"><i class="fa-solid fa-caret-up"></i> +1 unresolved</span>
-                                <span class="status-badge critical" style="font-size: 0.55rem; padding: 0 0.2rem;">Action</span>
+                            <div class="widget-footer">
+                                <span class="widget-trend neutral"><i class="fa-solid fa-circle"></i> Syncing</span>
+                                <span class="widget-extra">Active Assets</span>
                             </div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Warning Alerts</span>
-                                <i class="fa-solid fa-triangle-exclamation kpi-icon" style="color: var(--warning);"></i>
+
+                        <!-- Widget 2: Online Devices -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Online Devices</span>
+                                <i class="fa-solid fa-circle-check" style="color: var(--healthy);"></i>
                             </div>
-                            <div class="kpi-value" style="color: var(--warning);" id="kpi-warning-alerts">1</div>
-                            <div class="kpi-footer">
-                                <span class="trend-up"><i class="fa-solid fa-caret-down"></i> -2 cleared today</span>
-                                <span class="status-badge warning" style="font-size: 0.55rem; padding: 0 0.2rem;">Review</span>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-online-devices" style="color: var(--healthy);">--</span>
+                                <div class="widget-icon-box" style="background-color: rgba(16, 185, 129, 0.05); color: var(--healthy);"><i class="fa-solid fa-power-off"></i></div>
                             </div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Average Latency</span>
-                                <i class="fa-solid fa-gauge-high kpi-icon"></i>
-                            </div>
-                            <div class="kpi-value" id="kpi-avg-latency">4.2 ms</div>
-                            <div class="kpi-footer">
-                                <span class="trend-up"><i class="fa-solid fa-caret-down"></i> -0.5 ms drop</span>
-                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">Optimal</span>
+                            <div class="widget-footer">
+                                <span class="widget-trend up"><i class="fa-solid fa-caret-up"></i> 100%</span>
+                                <span class="widget-extra">Ping Responsive</span>
                             </div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Auto Fixed Today</span>
-                                <i class="fa-solid fa-bolt-lightning kpi-icon" style="color: var(--info);"></i>
+
+                        <!-- Widget 3: Offline Devices -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Offline Devices</span>
+                                <i class="fa-solid fa-circle-xmark" style="color: var(--critical);"></i>
                             </div>
-                            <div class="kpi-value" style="color: var(--info);" id="kpi-auto-fixed">2</div>
-                            <div class="kpi-footer">
-                                <span class="trend-up"><i class="fa-solid fa-check"></i> 100% success</span>
-                                <span class="status-badge info" style="font-size: 0.55rem; padding: 0 0.2rem;">Healed</span>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-offline-devices" style="color: var(--critical);">--</span>
+                                <div class="widget-icon-box" style="background-color: rgba(239, 68, 68, 0.05); color: var(--critical);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend down" id="widget-offline-trend"><i class="fa-solid fa-caret-up"></i> 0 down</span>
+                                <span class="widget-extra">Unreachable</span>
                             </div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-header">
-                                <span class="kpi-title">AI Accuracy</span>
-                                <i class="fa-solid fa-brain kpi-icon" style="color: var(--ai-accent);"></i>
+
+                        <!-- Widget 4: Critical Alerts -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Critical Alerts</span>
+                                <i class="fa-solid fa-circle-exclamation" style="color: var(--critical);"></i>
                             </div>
-                            <div class="kpi-value" id="kpi-ai-accuracy">99.4%</div>
-                            <div class="kpi-footer">
-                                <span>NIST SP 800-207</span>
-                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">Secure</span>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-critical-alerts" style="color: var(--critical);">--</span>
+                                <div class="widget-icon-box" style="background-color: rgba(239, 68, 68, 0.05); color: var(--critical);"><i class="fa-solid fa-fire"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend down" id="widget-critical-trend"><i class="fa-solid fa-caret-up"></i> Active</span>
+                                <span class="widget-extra">Requires Action</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 5: Active Incidents -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Active Incidents</span>
+                                <i class="fa-solid fa-kit-medical" style="color: var(--warning);"></i>
+                            </div>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-active-incidents" style="color: var(--warning);">--</span>
+                                <div class="widget-icon-box" style="background-color: rgba(245, 158, 11, 0.05); color: var(--warning);"><i class="fa-solid fa-circle-nodes"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend neutral" id="widget-incidents-trend">In Queue</span>
+                                <span class="widget-extra">Avg MTTR: 8m 42s</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 6: CPU Usage (circular gauge) -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Global CPU Load</span>
+                                <i class="fa-solid fa-microchip"></i>
+                            </div>
+                            <div class="widget-body" style="justify-content: space-around;">
+                                <div class="widget-gauge-wrapper">
+                                    <svg class="widget-gauge-svg">
+                                        <circle class="totp-circle-bg gauge-track" cx="35" cy="35" r="30"></circle>
+                                        <circle class="totp-circle-fg gauge-fill" id="widget-cpu-gauge" cx="35" cy="35" r="30" style="stroke: var(--primary); stroke-dasharray: 188.4; stroke-dashoffset: 188.4;"></circle>
+                                    </svg>
+                                    <span class="gauge-value-center" id="widget-cpu-value">--%</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; font-size: 0.7rem; color: var(--text-muted);">
+                                    <span>User: 12%</span>
+                                    <span>Sys: 5%</span>
+                                </div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend up"><i class="fa-solid fa-caret-down"></i> Stable</span>
+                                <span class="widget-extra">Prometheus Sync</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 7: Memory Usage (circular gauge) -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Global Memory Usage</span>
+                                <i class="fa-solid fa-memory"></i>
+                            </div>
+                            <div class="widget-body" style="justify-content: space-around;">
+                                <div class="widget-gauge-wrapper">
+                                    <svg class="widget-gauge-svg">
+                                        <circle class="totp-circle-bg gauge-track" cx="35" cy="35" r="30"></circle>
+                                        <circle class="totp-circle-fg gauge-fill" id="widget-memory-gauge" cx="35" cy="35" r="30" style="stroke: var(--info); stroke-dasharray: 188.4; stroke-dashoffset: 188.4;"></circle>
+                                    </svg>
+                                    <span class="gauge-value-center" id="widget-memory-value">--%</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; font-size: 0.7rem; color: var(--text-muted);">
+                                    <span>Free: 4.2 GB</span>
+                                    <span>Total: 8 GB</span>
+                                </div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend neutral">Steady</span>
+                                <span class="widget-extra">Resource Pool</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 8: Network Traffic -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Network Traffic</span>
+                                <i class="fa-solid fa-shuffle"></i>
+                            </div>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-network-traffic">-- Gbps</span>
+                                <div class="widget-icon-box"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend up" id="widget-traffic-trend"><i class="fa-solid fa-caret-up"></i> Live</span>
+                                <span class="widget-extra">Interface aggregates</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 9: Packet Loss -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Packet Loss</span>
+                                <i class="fa-solid fa-circle-nodes"></i>
+                            </div>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-packet-loss">0.00%</span>
+                                <div class="widget-icon-box" style="background-color: rgba(16, 185, 129, 0.05); color: var(--healthy);"><i class="fa-solid fa-chart-line"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend up" style="color: var(--healthy);"><i class="fa-solid fa-caret-down"></i> 0.0%</span>
+                                <span class="widget-extra">SLA Threshold: &lt;0.1%</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 10: Latency -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>Average Latency</span>
+                                <i class="fa-solid fa-gauge-high"></i>
+                            </div>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-latency">-- ms</span>
+                                <div class="widget-icon-box" id="widget-latency-icon-box"><i class="fa-solid fa-clock"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend up" id="widget-latency-trend"><i class="fa-solid fa-caret-down"></i> Stable</span>
+                                <span class="widget-extra">WAN Endpoint RTT</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 11: VPN Status -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <span>VPN Status</span>
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div class="widget-body">
+                                <span class="widget-value" id="widget-vpn-status">Active</span>
+                                <div class="widget-icon-box" id="widget-vpn-icon-box" style="background-color: rgba(16, 185, 129, 0.05); color: var(--healthy);"><i class="fa-solid fa-lock"></i></div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="widget-trend up" id="widget-vpn-trend">Phase 1 & 2 UP</span>
+                                <span class="widget-extra">IPsec Tunnel HQ</span>
+                            </div>
+                        </div>
+
+                        <!-- Widget 12: AI Recommendations -->
+                        <div class="widget-card" style="background: linear-gradient(135deg, rgba(79, 140, 255, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%); border-color: rgba(79, 140, 255, 0.2);">
+                            <div class="widget-header">
+                                <span style="color: var(--primary);">AI Copilot Recommendation</span>
+                                <i class="fa-solid fa-brain" style="color: var(--primary);"></i>
+                            </div>
+                            <div class="widget-body" style="flex-direction: column; gap: 0.2rem; align-items: stretch; justify-content: flex-start;">
+                                <strong style="font-size: 0.75rem; color: white;" id="widget-ai-rec-title">Monitoring Network Segments</strong>
+                                <p style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.3;" id="widget-ai-rec-desc">All interfaces operational. VPN Tunnel is stabilized. Run standard telemetry sweeps to audit.</p>
+                            </div>
+                            <div class="widget-footer" style="margin-top: 0.5rem;">
+                                <span style="color: var(--primary); font-weight:700;" id="widget-ai-rec-conf">Confidence: 99.4%</span>
+                                <span class="badge healthy" style="font-size:0.55rem; padding:0 0.25rem;">NOC Advisor</span>
                             </div>
                         </div>
                     </div>
@@ -1401,45 +1665,86 @@ Examples: "show ip interface brief", "ping 8.8.8.8", "traceroute 10.0.10.5", "de
                 </section>
 
                 <section class="tab-panel" id="panel-health">
-                    <div class="card" style="height: calc(100vh - 350px);">
-                        <div class="card-header"><h3>Detailed Network Segment Latency</h3></div>
-                        <div class="table-wrapper">
-                            <table class="node-table" id="ping-monitor-table">
-                                <thead>
-                                    <tr>
-                                        <th>Location Host</th>
-                                        <th>Interface IP</th>
-                                        <th>Average RTT</th>
-                                        <th>Min RTT</th>
-                                        <th>Max RTT</th>
-                                        <th>Packet Loss</th>
-                                        <th>Jitter</th>
-                                        <th>Current Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="ping-monitor-tbody">
-                                    <!-- Rendered dynamically -->
-                                </tbody>
-                            </table>
+                    <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.25rem; height: calc(100vh - 120px);">
+                        <div class="card" style="display: flex; flex-direction: column; height: 100%;">
+                            <div class="card-header"><h3>Detailed Network Latency & Ping Monitor</h3></div>
+                            <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                                <table class="node-table" id="ping-monitor-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Location Host</th>
+                                            <th>Interface IP</th>
+                                            <th>Average RTT</th>
+                                            <th>Min RTT</th>
+                                            <th>Max RTT</th>
+                                            <th>Packet Loss</th>
+                                            <th>Jitter</th>
+                                            <th>Current Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ping-monitor-tbody">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 1.25rem; height: 100%;">
+                            <div class="chart-container-noc" style="flex: 1;">
+                                <h4>Global Resources Load Trend (CPU & RAM) <span style="font-size:0.65rem; color:var(--text-muted); font-weight: normal;">Socket.IO Real-time Stream</span></h4>
+                                <div class="chart-wrapper-noc">
+                                    <canvas id="chart-cpu-memory"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-container-noc" style="flex: 1;">
+                                <h4>SLA Network Performance Trend (Latency & Loss) <span style="font-size:0.65rem; color:var(--text-muted); font-weight: normal;">Active Ping RTT Baseline</span></h4>
+                                <div class="chart-wrapper-noc">
+                                    <canvas id="chart-latency-loss"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <section class="tab-panel" id="panel-inventory">
-                    <div class="card" style="height: calc(100vh - 350px);">
-                        <div class="card-header"><h3>Device Inventory Table</h3></div>
-                        <div class="table-wrapper">
-                            <table class="node-table" id="node-table-body">
+                    <div class="card" style="height: calc(100vh - 120px); display: flex; flex-direction: column;">
+                        <div class="card-header" style="justify-content: space-between; align-items: center; display: flex;">
+                            <h3>Device Inventory & Assets</h3>
+                            <div class="inventory-controls" style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div class="global-search" style="width: 200px;">
+                                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.75rem;"></i>
+                                    <input type="text" id="inventory-search-input" placeholder="Search devices...">
+                                </div>
+                                <select id="inventory-status-filter" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: white; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.75rem;">
+                                    <option value="all">All Statuses</option>
+                                    <option value="healthy">Healthy</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                                <select id="inventory-vendor-filter" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: white; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.75rem;">
+                                    <option value="all">All Vendors</option>
+                                    <option value="cisco">Cisco</option>
+                                    <option value="juniper">Juniper</option>
+                                    <option value="arista">Arista</option>
+                                    <option value="fortinet">Fortinet</option>
+                                    <option value="palo alto">Palo Alto</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                            <table class="node-table" id="inventory-table-noc">
                                 <thead>
                                     <tr>
-                                        <th>Node Name</th>
+                                        <th>Device hostname</th>
+                                        <th>IP Address</th>
+                                        <th>Vendor</th>
                                         <th>Status</th>
-                                        <th>CPU</th>
-                                        <th>RAM</th>
-                                        <th>Telemetry Status</th>
+                                        <th>CPU Usage</th>
+                                        <th>Memory Usage</th>
+                                        <th>Uptime</th>
+                                        <th>Last Seen</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="inventory-tbody-noc">
                                     <!-- Rendered dynamically -->
                                 </tbody>
                             </table>
@@ -1847,6 +2152,139 @@ Examples: "show ip interface brief", "ping 8.8.8.8", "traceroute 10.0.10.5", "de
                     </div>
                 </section>
 
+                <!-- ==========================================
+                     TAB PANEL: ALERT CENTER
+                     ========================================== -->
+                <section class="tab-panel" id="panel-alerts">
+                    <div class="card" style="height: calc(100vh - 120px); display: flex; flex-direction: column;">
+                        <div class="card-header" style="justify-content: space-between; align-items: center; display: flex;">
+                            <h3>Alert Management Center</h3>
+                            <div class="alert-controls" style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div class="global-search" style="width: 200px;">
+                                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.75rem;"></i>
+                                    <input type="text" id="alerts-search-input" placeholder="Search alerts...">
+                                </div>
+                                <select id="alerts-severity-filter" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: white; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.75rem;">
+                                    <option value="all">All Severities</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="info">Info</option>
+                                </select>
+                                <select id="alerts-status-filter" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: white; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.75rem;">
+                                    <option value="all">All Statuses</option>
+                                    <option value="active">Active</option>
+                                    <option value="acknowledged">Acknowledged</option>
+                                    <option value="resolved">Resolved</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                            <table class="node-table" id="alerts-table-noc">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Source Device</th>
+                                        <th>Metric</th>
+                                        <th>Value</th>
+                                        <th>Severity</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-tbody-noc">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: ANALYTICS DASHBOARD
+                     ========================================== -->
+                <section class="tab-panel" id="panel-analytics">
+                    <div style="height: calc(100vh - 120px); overflow-y: auto; display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 2rem;">
+                        <!-- KPI Row -->
+                        <div class="incident-summary-bar">
+                            <div class="incident-summary-card">
+                                <span>Network Health Index</span>
+                                <strong id="analytics-health-score" style="color: var(--healthy);">--%</strong>
+                            </div>
+                            <div class="incident-summary-card">
+                                <span>Mean Time To Resolution (MTTR)</span>
+                                <strong id="analytics-mttr">-- mins</strong>
+                            </div>
+                            <div class="incident-summary-card">
+                                <span>Mean Time Between Failures (MTBF)</span>
+                                <strong id="analytics-mtbf">-- hours</strong>
+                            </div>
+                            <div class="incident-summary-card">
+                                <span>SLA Compliance Rate</span>
+                                <strong id="analytics-sla-pct" style="color: var(--healthy);">100.0%</strong>
+                            </div>
+                        </div>
+
+                        <!-- Analytical Charts Grid -->
+                        <div class="telemetry-charts-grid">
+                            <div class="chart-container-noc">
+                                <h4>Incident Trends (Last 7 Days) <span style="font-size:0.65rem; color:var(--text-muted); font-weight: normal;">Active Incident Load</span></h4>
+                                <div class="chart-wrapper-noc">
+                                    <canvas id="chart-incident-trends"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-container-noc">
+                                <h4>Automation Playbook Success Rate <span style="font-size:0.65rem; color:var(--text-muted); font-weight: normal;">Self-Healing Execution</span></h4>
+                                <div class="chart-wrapper-noc">
+                                    <canvas id="chart-automation-success"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Availability Heatmap -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Infrastructure Availability Heatmap (24 Hours)</h3>
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">Each block represents a 1-hour interval for monitored assets</span>
+                            </div>
+                            <div class="availability-heatmap" id="analytics-availability-heatmap">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted);">
+                                <span><span style="display:inline-block; width:10px; height:10px; background:var(--healthy); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> 100% Online</span>
+                                <span><span style="display:inline-block; width:10px; height:10px; background:var(--warning); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> Degraded</span>
+                                <span><span style="display:inline-block; width:10px; height:10px; background:var(--critical); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> Down</span>
+                            </div>
+                        </div>
+
+                        <!-- SLA Breach Log -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>SLA Compliance Breach Log</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="node-table" id="analytics-sla-log">
+                                    <thead>
+                                        <tr>
+                                            <th>Incident ID</th>
+                                            <th>Device</th>
+                                            <th>Severity</th>
+                                            <th>Open Time</th>
+                                            <th>Resolved Time</th>
+                                            <th>Target SLA</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="7" style="text-align:center; color:var(--text-muted);">No SLA compliance breaches detected</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
             </div>
 
             <!-- BOTTOM PANEL: AI TERMINAL -->
@@ -2048,7 +2486,60 @@ Examples: "show ip interface brief", "ping 8.8.8.8", "traceroute 10.0.10.5", "de
                 <button class="btn btn-sm btn-outline" id="btn-details-export-docx"><i class="fa-solid fa-file-word"></i> Export DOCX</button>
             </div>
         </div>
+    <!-- ==========================================
+         INVENTORY DETAILS OVERLAY (SIDE DRAWER)
+         ========================================== -->
+    <div class="inventory-detail-overlay" id="inventory-detail-overlay">
+        <div class="inventory-detail-header">
+            <h3 id="inv-detail-name">Device Details</h3>
+            <button class="btn btn-sm btn-outline" id="btn-close-inventory-detail"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="inventory-detail-body">
+            <div class="inventory-detail-section">
+                <h4>System Metadata</h4>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.75rem;">
+                    <div class="server-config-item"><span>Hostname:</span><strong id="inv-detail-hostname">--</strong></div>
+                    <div class="server-config-item"><span>IP Address:</span><strong id="inv-detail-ip">--</strong></div>
+                    <div class="server-config-item"><span>Vendor / OS:</span><strong id="inv-detail-vendor">--</strong></div>
+                    <div class="server-config-item"><span>Current Status:</span><span class="status-badge" id="inv-detail-status">--</span></div>
+                </div>
+            </div>
+            <div class="inventory-detail-section">
+                <h4>Resource Load</h4>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.75rem;">
+                    <div class="server-config-item"><span>CPU Utilization:</span><strong id="inv-detail-cpu">--%</strong></div>
+                    <div class="server-config-item"><span>Memory Utilization:</span><strong id="inv-detail-ram">--%</strong></div>
+                </div>
+            </div>
+            <div class="inventory-detail-section">
+                <h4>Interface Summary</h4>
+                <div class="table-wrapper" style="max-height: 200px; overflow-y: auto;">
+                    <table class="node-table" style="font-size: 0.7rem;" id="inv-detail-interfaces-table">
+                        <thead>
+                            <tr>
+                                <th>Interface</th>
+                                <th>Status</th>
+                                <th>Capacity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="inventory-detail-section">
+                <h4>Operational Status</h4>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.75rem;">
+                    <div class="server-config-item"><span>Uptime duration:</span><strong id="inv-detail-uptime">--</strong></div>
+                    <div class="server-config-item"><span>Last telemetry sync:</span><strong id="inv-detail-last-seen">--</strong></div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script src="app.js"></script>
 </body>
