@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Dict, Optional, List
@@ -13,6 +14,7 @@ import ai_engine
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["configuration"])
+logger = logging.getLogger("noc.config")
 
 from services.redis_cache import RedisCacheManager
 import json
@@ -78,7 +80,7 @@ async def api_validate_config(req: ValidateConfigRequest, user: dict = Depends(g
     }
 
 @router.post("/deploy-config", response_model=DeployConfigResponse)
-async def api_deploy_config(req: DeployConfigRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def api_deploy_config(req: DeployConfigRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     username = user["username"]
     role = user["role"]
     
@@ -96,7 +98,7 @@ async def api_deploy_config(req: DeployConfigRequest, user: dict = Depends(get_c
             user_name=username,
             role=role,
             action="Deployment Blocked",
-            ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
             details=f"Read-only access blocked from modifying configuration on {device}.",
             status="Blocked"
         )
@@ -111,7 +113,7 @@ async def api_deploy_config(req: DeployConfigRequest, user: dict = Depends(get_c
             user_name=username,
             role=role,
             action="Deployment Blocked",
-            ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
             details=f"Engineer unauthorized for direct deployment of destructive patches on {device}.",
             status="Blocked"
         )
@@ -134,7 +136,7 @@ async def api_deploy_config(req: DeployConfigRequest, user: dict = Depends(get_c
                 user_name=username,
                 role=role,
                 action="Dual Approval Rejected",
-                ip="127.0.0.1",
+            ip=request.client.host if request.client else "0.0.0.0",
                 details=f"Destructive command deployment blocked on {device} (Dual Approval required).",
                 status="Blocked"
             )
@@ -150,7 +152,7 @@ async def api_deploy_config(req: DeployConfigRequest, user: dict = Depends(get_c
             user_name=username,
             role=role,
             action="Operator Approval Missing",
-            ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
             details=f"Engineer blocked from deploying on {device} without Operator verification token.",
             status="Blocked"
         )

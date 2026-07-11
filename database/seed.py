@@ -1,4 +1,5 @@
 import os
+import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from database.session import SessionLocal, engine
@@ -15,84 +16,87 @@ from models.event import Event
 from services.auth import get_password_hash
 from datetime import datetime
 
+logger = logging.getLogger("noc.database")
+
+
 def seed_db():
-    print("Ensuring database tables are initialized...")
-    
+    logger.info("Ensuring database tables are initialized...")
+
     # We let Alembic handle the schema updates, but create tables if they are missing
     Base.metadata.create_all(bind=engine)
-    
+
     db = SessionLocal()
     try:
         # 1. Seed Roles and Permissions
-        role_count = db.scalar(select(sa_func_count(Role.id))) if 'sa_func_count' in globals() else db.query(Role).count()
+        role_count = db.query(Role).count()
         if role_count == 0:
-            print("Seeding default Roles and Permissions...")
-            
+            logger.info("Seeding default Roles and Permissions...")
+
             # Create permissions
             p_read = Permission(name="read:all", description="Read-only access to all network data")
             p_write = Permission(name="write:configs", description="Propose and validate configuration changes")
             p_deploy = Permission(name="deploy:configs", description="Deploy patches and playbooks to live devices")
             p_admin = Permission(name="admin:all", description="Full administrative privileges")
-            
+
             db.add_all([p_read, p_write, p_deploy, p_admin])
             db.flush()  # populate IDs
-            
+
             # Create roles
             r_admin = Role(name="Admin", description="System Administrator with full access")
             r_admin.permissions = [p_read, p_write, p_deploy, p_admin]
-            
+
             r_manager = Role(name="Manager", description="Operations Manager with configuration execution capabilities")
             r_manager.permissions = [p_read, p_write, p_deploy]
-            
+
             r_engineer = Role(name="Network Engineer", description="Network Automation Analyst with write access (requires deployment approval)")
             r_engineer.permissions = [p_read, p_write]
-            
+
             r_guest = Role(name="Guest", description="Auditor with read-only access")
             r_guest.permissions = [p_read]
-            
+
             db.add_all([r_admin, r_manager, r_engineer, r_guest])
             db.commit()
-            print("Roles and Permissions seeded successfully.")
+            logger.info("Roles and Permissions seeded successfully.")
 
         # Resolve seeded roles
         role_map = {r.name: r for r in db.scalars(select(Role)).all()}
-        
+
         # 2. Seed Users
         user_count = db.query(User).count()
         if user_count == 0:
-            print("Seeding default user profiles with secure bcrypt hashes & TOTP secrets...")
+            logger.info("Seeding default user profiles with secure bcrypt hashes & TOTP secrets...")
             default_users = [
                 User(
-                    username="admin", 
-                    password_hash=get_password_hash("admin123"), 
-                    role="Admin", 
+                    username="admin",
+                    password_hash=get_password_hash("admin123"),
+                    role="Admin",
                     name="System Administrator",
                     totp_secret="ADMINMFASECRET23",
                     mfa_enabled=True,
                     role_id=role_map["Admin"].id
                 ),
                 User(
-                    username="operator", 
-                    password_hash=get_password_hash("operator123"), 
-                    role="Operator", 
+                    username="operator",
+                    password_hash=get_password_hash("operator123"),
+                    role="Operator",
                     name="Operations Manager",
                     totp_secret="OPERATORMFASECR",
                     mfa_enabled=True,
                     role_id=role_map["Manager"].id
                 ),
                 User(
-                    username="engineer", 
-                    password_hash=get_password_hash("engineer123"), 
-                    role="Engineer", 
+                    username="engineer",
+                    password_hash=get_password_hash("engineer123"),
+                    role="Engineer",
                     name="Network Automation Analyst",
                     totp_secret="ENGINEERMFASECR",
                     mfa_enabled=True,
                     role_id=role_map["Network Engineer"].id
                 ),
                 User(
-                    username="read_only", 
-                    password_hash=get_password_hash("readonly123"), 
-                    role="Read Only", 
+                    username="read_only",
+                    password_hash=get_password_hash("readonly123"),
+                    role="Read Only",
                     name="Auditor / Guest",
                     totp_secret="READONLYMFASECR",
                     mfa_enabled=True,
@@ -104,7 +108,7 @@ def seed_db():
 
         # 3. Seed Network Devices
         if db.query(Device).count() == 0:
-            print("Seeding default network devices...")
+            logger.info("Seeding default network devices...")
             default_devices = [
                 Device(name="router-hq", ip="198.51.100.2", vendor="Cisco", platform="IOS-XE", status="Healthy", role="HQ Edge Router / VPN Gateway", site="HQ", description="HQ Core Edge Gateway Router"),
                 Device(name="asa-edge-01", ip="203.0.113.12", vendor="Cisco", platform="ASA OS", status="Healthy", role="Perimeter Protection Firewall", site="HQ", description="Primary Firewall Core Layer"),
@@ -125,7 +129,7 @@ def seed_db():
 
         # 4. Seed Interfaces
         if db.query(Interface).count() == 0:
-            print("Seeding device interface configurations...")
+            logger.info("Seeding device interface configurations...")
             interfaces = [
                 Interface(device_name="router-hq", name="GigabitEthernet1", ip_address="198.51.100.2", mac_address="52:54:00:12:34:56", status="up", speed="1Gbps", description="WAN edge uplink"),
                 Interface(device_name="router-hq", name="GigabitEthernet2", ip_address="10.0.1.254", mac_address="52:54:00:12:34:57", status="up", speed="1Gbps", description="Core switch gateway link"),
@@ -139,7 +143,7 @@ def seed_db():
 
         # 5. Seed Alarms
         if db.query(Alarm).count() == 0:
-            print("Seeding default alarms...")
+            logger.info("Seeding default alarms...")
             default_alarms = [
                 Alarm(id="AL-8891", timestamp=datetime.utcnow(), source="db-srv-01", metric="Disk Space (/var/log)", value="94%", severity="Warning", time_display="2h ago", status="Active"),
                 Alarm(id="AL-8894", timestamp=datetime.utcnow(), source="asa-edge-01", metric="SSH Spray Attack", value="120 attempts/min", severity="Critical", time_display="5m ago", status="Active")
@@ -149,7 +153,7 @@ def seed_db():
 
         # 6. Seed Configuration Backups from memory baseline configuration
         if db.query(ConfigurationBackup).count() == 0:
-            print("Seeding baseline configuration backups...")
+            logger.info("Seeding baseline configuration backups...")
             from services.config_manager import BASELINE_CONFIGS
             for dev_name, config_text in BASELINE_CONFIGS.items():
                 bck_id = f"CFG_BCK_{dev_name.upper()}_1688537000"
@@ -168,7 +172,7 @@ def seed_db():
 
         # 7. Seed placeholder NOC Events
         if db.query(Event).count() == 0:
-            print("Seeding initial network events...")
+            logger.info("Seeding initial network events...")
             events = [
                 Event(source="router-hq", event_type="OSPF", severity="Info", message="OSPF Adjacency state change: neighbor 198.51.100.1 on GigabitEthernet1 from LOADING to FULL"),
                 Event(source="asa-edge-01", event_type="Auth", severity="Warning", message="User 'guest' login failure on interface outside. Reason: Bad credentials"),
@@ -177,12 +181,13 @@ def seed_db():
             db.add_all(events)
             db.commit()
 
-        print("Database seeding completed successfully.")
+        logger.info("Database seeding completed successfully.")
     except Exception as e:
-        print(f"Error seeding database: {e}")
+        logger.error(f"Error seeding database: {e}", exc_info=True)
         db.rollback()
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_db()

@@ -1,3 +1,4 @@
+import logging
 import random
 import os
 import json
@@ -5,6 +6,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Dict, Any
 import google.generativeai as genai
+
+logger = logging.getLogger("noc.incident")
 
 # Setup Gemini API key
 api_key = os.getenv("GEMINI_API_KEY")
@@ -336,7 +339,10 @@ Critical alert triggered for `{metric}` on device `{device_name}` showing value 
                     data[k] = "N/A"
             return data
         except Exception as e:
-            print(f"Gemini incident investigator error: {e}. Falling back to high-fidelity template.")
+            logger.error(
+                f"Gemini incident investigator error: {e}. Falling back to high-fidelity template.",
+                exc_info=True
+            )
             return IncidentEngine.get_fallback_investigation(device_name, metric, value)
 
     @staticmethod

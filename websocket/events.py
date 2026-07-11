@@ -1,19 +1,19 @@
 from websocket.server import sio
 import logging
 
-logger = logging.getLogger("websocket")
+logger = logging.getLogger("noc.websocket")
 
 @sio.event
 async def connect(sid, environ):
     logger.info(f"Socket.IO client connected: {sid}")
-    print(f"Socket.IO client connected: {sid}")
+
     # Immediately send a welcome ping
     await sio.emit("welcome", {"message": "NOC Real-Time Telemetry Link Established"}, to=sid)
 
 @sio.event
 async def disconnect(sid):
     logger.info(f"Socket.IO client disconnected: {sid}")
-    print(f"Socket.IO client disconnected: {sid}")
+
 
 async def broadcast_telemetry(data: dict):
     """

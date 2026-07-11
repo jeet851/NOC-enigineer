@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Dict, List
@@ -19,6 +20,7 @@ ai_engine_root = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ai_engine_root)
 
 router = APIRouter(prefix="/api", tags=["copilot-chat"])
+logger = logging.getLogger("noc.chat")
 
 # In-memory session stores for chat histories
 chat_sessions: Dict[str, List[dict]] = {}
@@ -30,6 +32,7 @@ async def get_personas(user: dict = Depends(get_current_user)):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
+    request: Request,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -92,7 +95,7 @@ async def chat(
         user_name=user["username"],
         role=user["role"],
         action="Copilot Chat",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Queried copilot: '{message[:50]}...'",
         status="Success"
     )
@@ -108,6 +111,7 @@ async def chat(
 @router.post("/chat/stream")
 async def chat_stream(
     req: ChatRequest,
+    request: Request,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -155,7 +159,7 @@ async def chat_stream(
         user_name=user["username"],
         role=user["role"],
         action="Copilot Chat Stream",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Queried copilot stream: '{message[:50]}...'",
         status="Success"
     )

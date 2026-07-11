@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -9,6 +10,7 @@ from services.vault import VaultService
 from services.audit import AuditService
 
 router = APIRouter(prefix="/api/vault", tags=["credential-vault"])
+logger = logging.getLogger("noc.vault")
 
 class DecryptSecretRequest(BaseModel):
     name: str
@@ -49,7 +51,7 @@ async def api_get_vault(user: dict = Depends(get_current_user), db: Session = De
 
 
 @router.post("/decrypt")
-async def api_decrypt_secret(req: DecryptSecretRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def api_decrypt_secret(req: DecryptSecretRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Restrict decryption to Admin and Operator
     if user["role"] not in ["Admin", "Operator"]:
         raise HTTPException(
@@ -67,7 +69,7 @@ async def api_decrypt_secret(req: DecryptSecretRequest, user: dict = Depends(get
         user_name=user["username"],
         role=user["role"],
         action="Decrypt Vault Secret",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Decrypted credential safe secret: '{name}'"
     )
     
@@ -77,7 +79,7 @@ async def api_decrypt_secret(req: DecryptSecretRequest, user: dict = Depends(get
     }
 
 @router.post("/add")
-async def api_add_secret(req: SaveSecretRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def api_add_secret(req: SaveSecretRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Restrict secret addition to Admin and Operator
     if user["role"] not in ["Admin", "Operator"]:
         raise HTTPException(
@@ -107,14 +109,14 @@ async def api_add_secret(req: SaveSecretRequest, user: dict = Depends(get_curren
         user_name=user["username"],
         role=user["role"],
         action="Add Vault Secret",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Added vaulted credential secret: '{name}' ({secret_type})"
     )
     
     return {"status": "success", "message": f"Credential secret '{name}' added successfully."}
 
 @router.post("/delete")
-async def api_delete_secret(req: DeleteSecretRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def api_delete_secret(req: DeleteSecretRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Delete credentials is strictly restricted to Admin role
     if user["role"] not in ["Admin"]:
         raise HTTPException(
@@ -132,13 +134,13 @@ async def api_delete_secret(req: DeleteSecretRequest, user: dict = Depends(get_c
         user_name=user["username"],
         role=user["role"],
         action="Delete Vault Secret",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Deleted vaulted credential secret: '{name}'"
     )
     return {"status": "success", "message": f"Credential secret '{name}' deleted successfully."}
 
 @router.post("/test", response_model=CredentialTestResponse)
-async def api_test_credential(req: CredentialTestRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def api_test_credential(req: CredentialTestRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Admin, Operator, and Engineer can test credentials
     if user["role"] not in ["Admin", "Operator", "Engineer"]:
         raise HTTPException(
@@ -153,7 +155,7 @@ async def api_test_credential(req: CredentialTestRequest, user: dict = Depends(g
         user_name=user["username"],
         role=user["role"],
         action="Test Vault Credential",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Tested credential '{req.name}' on '{req.device}'. Status: {'PASSED' if success else 'FAILED'}"
     )
     

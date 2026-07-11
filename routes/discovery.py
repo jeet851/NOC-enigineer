@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -7,6 +8,8 @@ from schemas.discovery import DiscoveryRunRequest, DiscoveryScheduleRequest, Dis
 from models.discovery import DiscoveryLog
 from services.discovery import DiscoveryService
 from services.audit import AuditService
+
+logger = logging.getLogger("noc.discovery")
 
 router = APIRouter(prefix="/api/discovery", tags=["network-discovery"])
 
@@ -21,13 +24,14 @@ async def execute_background_discovery(subnet: str, db_session_factory):
     try:
         await DiscoveryService.run_subnet_discovery(subnet, db)
     except Exception as e:
-        print(f"[BACKGROUND DISCOVERY ERROR] {e}")
+        logger.error(f"Background discovery error on subnet {subnet}: {e}", exc_info=True)
     finally:
         db.close()
 
 @router.post("/run", status_code=202)
 async def trigger_manual_discovery(
     req: DiscoveryRunRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -52,7 +56,7 @@ async def trigger_manual_discovery(
         user_name=user["username"],
         role=user["role"],
         action="Trigger Network Discovery",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Triggered manual network discovery sweep on subnet: {subnet}"
     )
     
@@ -64,6 +68,7 @@ async def trigger_manual_discovery(
 @router.post("/schedule")
 async def configure_discovery_schedule(
     req: DiscoveryScheduleRequest,
+    request: Request,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -93,7 +98,7 @@ async def configure_discovery_schedule(
         user_name=user["username"],
         role=user["role"],
         action="Schedule Network Discovery",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Scheduled discovery sweeps on {subnet} every {interval} minutes."
     )
     

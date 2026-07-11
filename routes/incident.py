@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -42,6 +42,7 @@ async def get_active_incidents(
 @router.post("/{incident_id}/resolve")
 async def resolve_incident_manually(
     incident_id: str,
+    request: Request,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -61,7 +62,7 @@ async def resolve_incident_manually(
         user_name=user["username"],
         role=user["role"],
         action="Resolve Incident Manually",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Manually resolved incident: '{incident_id}'"
     )
     

@@ -21,3 +21,10 @@ from models.chat_history import ChatHistory
 from models.notification import Notification
 from models.api_key import ApiKey
 from models.session import SessionModel
+
+# Hardening Phase 1 New Models
+from models.incident_timeline import IncidentTimeline
+from models.automation_job import AutomationJob
+from models.slack_message import SlackMessage
+from models.compliance_report import ComplianceReport
+from models.background_task import BackgroundTask

@@ -1,7 +1,10 @@
+import logging
 import os
 import json
 import time
 from typing import List, Dict, Any, Tuple
+
+logger = logging.getLogger("noc.graph")
 
 # Scapy for PCAP parsing (guaranteed to import since installed in .venv)
 try:
@@ -49,9 +52,9 @@ class Neo4jTopologyConnector:
             try:
                 self.driver = GraphDatabase.driver(uri, auth=(user, password))
                 self.driver.verify_connectivity()
-                print("Neo4j Graph Database connected successfully.")
+                logger.info("Neo4j Graph Database connected successfully.")
             except Exception:
-                print("Warning: Neo4j server down or driver error. falling back to local graph adjacency list.")
+                logger.warning("Neo4j server unavailable — falling back to local graph adjacency list.")
                 self.driver = None
 
     def close(self):

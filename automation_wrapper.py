@@ -50,7 +50,7 @@ class DeviceAutomationManager:
             try:
                 # Decrypt credentials from Vault
                 username = "admin"
-                password = "Password123" # Mock credentials
+                password = os.environ.get("DEVICE_PASSWORD", "Password123") # Mock credentials fallback
                 
                 device_type = "cisco_ios" if vendor.lower() == "cisco" else "juniper_junos"
                 
@@ -100,7 +100,8 @@ class DeviceAutomationManager:
         if NAPALM_AVAILABLE and not os.environ.get("FORCE_SIMULATION", "1") == "1" and "Live-Auth" in secrets:
             try:
                 driver = get_network_driver('ios' if vendor.lower() == 'cisco' else 'junos')
-                device = driver(target_dev["ip"], 'admin', 'Password123')
+                device_password = os.environ.get("DEVICE_PASSWORD", "Password123")
+                device = driver(target_dev["ip"], 'admin', device_password)
                 device.open()
                 device.load_merge_candidate(config=config_commands)
                 diff = device.compare_config()

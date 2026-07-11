@@ -1,5 +1,7 @@
 import os
 import asyncio
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,9 +10,42 @@ import uvicorn
 from api.config import settings
 from api.exceptions import register_exception_handlers
 from core.logger import setup_logging
+from core.rate_limiter import limiter
+from slowapi.middleware import SlowAPIMiddleware
 
 # Initialize structured JSON logging for the application
 setup_logging()
+logger = logging.getLogger("noc.startup")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup actions
+    logger.info("Initializing Zero-Trust AI NOC Server startup lifecycle hooks...")
+    
+    # Database Initialization & Seeding
+    from database.seed import seed_db
+    try:
+        seed_db()
+    except Exception as e:
+        logger.error(f"Startup warning: Database seeding failed: {e}", exc_info=True)
+        
+    # Start Background Telemetry Collection Loop
+    from telemetry.collector import run_network_telemetry_loop
+    telemetry_task = asyncio.create_task(run_network_telemetry_loop())
+    logger.info("NOC Telemetry sweep engine launched successfully.")
+    
+    yield
+    
+    # Shutdown actions
+    logger.info("Cleaning up server resources during shutdown lifecycle hooks...")
+    telemetry_task.cancel()
+    try:
+        await telemetry_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("NOC background telemetry task stopped. Cleanup complete.")
+
 
 from routes import (
     auth, chat, action, settings as settings_routes, config,
@@ -20,12 +55,20 @@ from routes import (
     metrics
 )
 
-app = FastAPI(title="Zero-Trust AI NOC Server", version="2.0.0")
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    lifespan=lifespan
+)
+
+# Attach slowapi rate limiter to app state
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
 # 1. CORS Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,6 +78,8 @@ app.add_middleware(
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
+    
+    # Default permissive policy for development
     csp_policy = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
@@ -43,11 +88,24 @@ async def add_security_headers(request: Request, call_next):
         "img-src 'self' data:; "
         "connect-src 'self';"
     )
+    
+    # Hardened policy for production compliance (no unsafe-inline)
+    if settings.APP_ENV == "production":
+        csp_policy = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self';"
+        )
+        
     response.headers["Content-Security-Policy"] = csp_policy
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
 
 # 3. Exception Handlers Registration
@@ -84,22 +142,7 @@ app.include_router(v1_router)
 # 6. Mount Static HTML Frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-# 7. Database and Telemetry startup hooks
-@app.on_event("startup")
-def startup_event():
-    # Database Initialization & Seeding
-    from database.seed import seed_db
-    try:
-        seed_db()
-    except Exception as e:
-        print(f"Startup warning: Database seeding failed: {e}")
-        
-    # Start Background Telemetry Collection Loop
-    from telemetry.collector import run_network_telemetry_loop
-    asyncio.create_task(run_network_telemetry_loop())
-    print("NOC Telemetry sweep engine launched successfully.")
-
-# 8. Wrap FastAPI app with Socket.IO ASGI app
+# 7. Wrap FastAPI app with Socket.IO ASGI app
 import socketio
 from websocket import sio
 app_asgi = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="socket.io")

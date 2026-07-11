@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from api.deps import get_current_user, get_db
 from sqlalchemy.orm import Session
@@ -128,6 +128,7 @@ from routes.optimization import check_rate_limit
 @router.post("/execute", dependencies=[Depends(check_rate_limit)])
 async def execute_cli_command(
     req: CLIExecutionRequest,
+    request: Request,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -147,7 +148,7 @@ async def execute_cli_command(
         user_name=user["username"],
         role=user["role"],
         action=f"Execute CLI Command ({library})",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Executed command '{command}' on device '{device}' via {library}"
     )
     

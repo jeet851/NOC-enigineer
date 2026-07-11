@@ -1,16 +1,64 @@
+# ============================================================
+# Zero-Trust AI NOC Copilot — Python Dependencies
+# Phase 1: Enterprise Backend Hardening
+# ============================================================
+
+# ---- Slack Integration ----
 slack-bolt>=1.18.0
+
+# ---- Environment & Configuration ----
 python-dotenv>=1.0.0
-google-generativeai>=0.3.0
-flask>=3.0.0
-cryptography>=41.0.0
-fastapi>=0.100.0
-uvicorn>=0.22.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
-redis>=4.5.0
-scapy>=2.5.0
-networkx>=3.0
-pandas>=2.0
+
+# ---- Google Gemini AI ----
+google-generativeai>=0.3.0
+
+# ---- Web Framework & Server ----
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+python-socketio>=5.11.0
+
+# ---- Security & Authentication ----
+bcrypt>=4.1.0
+python-jose[cryptography]>=3.3.0
+cryptography>=41.0.0
+
+# ---- Database & ORM ----
+sqlalchemy>=2.0.0
+alembic>=1.13.0
 asyncpg>=0.29.0
 aiosqlite>=0.20.0
+
+# ---- Redis & Task Queue ----
+redis>=5.0.0
+celery>=5.3.0
+kombu>=5.3.0
+
+# ---- Rate Limiting ----
+slowapi>=0.1.9
+
+# ---- Network Automation (optional — fails gracefully if absent) ----
+netmiko>=4.3.0
+napalm>=5.0.0
+
+# ---- Packet Analysis ----
+scapy>=2.5.0
+
+# ---- Graph Database (optional — fails gracefully if absent) ----
+neo4j>=5.14.0
+
+# ---- Data & Analysis ----
+networkx>=3.0
+pandas>=2.0
 psutil>=5.9.0
+
+# ---- Reporting ----
+reportlab>=4.1.0
+
+# ---- Legacy Web Framework (used by some utility scripts) ----
+flask>=3.0.0
+
+# ---- HTTP Client (for discovery scanner) ----
+httpx>=0.27.0

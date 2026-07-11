@@ -13,10 +13,12 @@ from services.alarm import AlarmService
 from routes.config import active_scenarios_state  # Share scenario states dynamically
 from websocket.server import sio
 
-logger = logging.getLogger("telemetry_collector")
+from api.config import settings
 
-# Monitor interval changed to 5 seconds
-monitor_interval_seconds = 5
+logger = logging.getLogger("noc.telemetry")
+
+# Monitor interval driven by settings (configurable via TELEMETRY_INTERVAL_SECONDS env var)
+monitor_interval_seconds = settings.TELEMETRY_INTERVAL_SECONDS
 syslog_file_path = "syslogs.log"
 
 def write_local_syslog(device_name: str, message: str):
@@ -29,7 +31,7 @@ def write_local_syslog(device_name: str, message: str):
         with open(syslog_file_path, "a") as f:
             f.write(entry)
     except Exception as e:
-        print(f"Error writing local syslog: {e}")
+        logger.error(f"Error writing local syslog: {e}")
 
 from services.redis_cache import RedisCacheManager
 
@@ -38,7 +40,10 @@ async def run_network_telemetry_loop():
     Asynchronous background job that runs every 5 seconds to collect metrics,
     store them, broadcast them, and evaluate thresholds to trigger alarms.
     """
-    print("Zero-Trust Monitoring Engine Active: Initiating Telemetry Loop at 5s interval.")
+    logger.info(
+        "Zero-Trust Monitoring Engine active",
+        extra={"interval_seconds": monitor_interval_seconds}
+    )
     
     # Store previous alarm states to prevent duplicate Socket.IO emits
     active_alarms_tracker = {}
@@ -299,8 +304,7 @@ async def run_network_telemetry_loop():
             RedisCacheManager.set("monitoring:db_latency_ms", str(db_write_latency_ms))
 
         except Exception as e:
-            logger.error(f"Error in Telemetry monitor run: {e}")
-            print(f"Error in Telemetry monitor run: {e}")
+            logger.error(f"Error in Telemetry monitor run: {e}", exc_info=True)
         finally:
             db.close()
             

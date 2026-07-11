@@ -3,7 +3,7 @@ import socket
 import ssl
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -209,7 +209,7 @@ async def get_zero_trust_status(user: dict = Depends(get_current_user), db: Sess
 
 
 @router.post("/rotate-ssh")
-async def rotate_ssh_key(req: RotateSSHRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def rotate_ssh_key(req: RotateSSHRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Restrict key rotation to Admin and Operator roles
     if user["role"] not in ["Admin", "Operator"]:
         raise HTTPException(
@@ -262,7 +262,7 @@ async def rotate_ssh_key(req: RotateSSHRequest, user: dict = Depends(get_current
         user_name=user["username"],
         role=user["role"],
         action="Rotate SSH Key",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Successfully generated and rotated key pair for '{name}'."
     )
     
@@ -290,7 +290,7 @@ async def api_validate_certificate(req: ValidateCertRequest, user: dict = Depend
         raise HTTPException(status_code=400, detail="Invalid certificate validation type. Must be 'domain' or 'pem'.")
 
 @router.post("/update-role")
-async def update_user_role(req: UpdateUserRoleRequest, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def update_user_role(req: UpdateUserRoleRequest, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     # Role modification restricted strictly to Admin
     if user["role"] not in ["Admin"]:
         raise HTTPException(
@@ -318,7 +318,7 @@ async def update_user_role(req: UpdateUserRoleRequest, user: dict = Depends(get_
         user_name=user["username"],
         role=user["role"],
         action="Modify User Role",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details=f"Changed role of user '{target_username}' from '{old_role}' to '{new_role}'"
     )
     

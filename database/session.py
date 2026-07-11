@@ -23,10 +23,17 @@ sync_connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     sync_connect_args["check_same_thread"] = False
 
+engine_kwargs = {
+    "pool_pre_ping": settings.DB_POOL_PRE_PING,
+    "connect_args": sync_connect_args
+}
+if not settings.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+    engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    connect_args=sync_connect_args
+    **engine_kwargs
 )
 
 # 2. Async Database Configurations
@@ -35,10 +42,17 @@ async_connect_args = {}
 if async_db_url.startswith("sqlite"):
     async_connect_args["check_same_thread"] = False
 
+async_engine_kwargs = {
+    "pool_pre_ping": settings.DB_POOL_PRE_PING,
+    "connect_args": async_connect_args
+}
+if not async_db_url.startswith("sqlite"):
+    async_engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+    async_engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+
 async_engine = create_async_engine(
     async_db_url,
-    pool_pre_ping=True,
-    connect_args=async_connect_args
+    **async_engine_kwargs
 )
 
 # 3. SQLite Pragma optimizations

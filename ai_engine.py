@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import base64
@@ -6,6 +7,8 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 import database
+
+logger = logging.getLogger("noc.ai")
 
 # Load environment variables
 load_dotenv()
@@ -346,9 +349,9 @@ if api_key and api_key != "your-gemini-api-key" and api_key.strip() != "":
     try:
         genai.configure(api_key=api_key)
         gemini_available = True
-        print("Gemini API is active for AIOps Bot.")
+        logger.info("Gemini AI engine active", extra={"model": "gemini-1.5-flash"})
     except Exception as e:
-        print(f"Error configuring Gemini: {e}")
+        logger.error(f"Error configuring Gemini: {e}", exc_info=True)
 
 # ========================================================
 # HIGH-FIDELITY 13-POINT SCENARIO TEMPLATE MOCK RESPONSES

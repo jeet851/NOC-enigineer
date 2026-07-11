@@ -98,7 +98,7 @@ async def get_performance_stats(user: dict = Depends(get_current_user)):
     }
 
 @router.post("/simulate")
-async def toggle_scale_simulation(req: SimulationRequest, user: dict = Depends(get_current_user)):
+async def toggle_scale_simulation(req: SimulationRequest, request: Request, user: dict = Depends(get_current_user)):
     username = user["username"]
     role = user["role"]
     
@@ -121,7 +121,7 @@ async def toggle_scale_simulation(req: SimulationRequest, user: dict = Depends(g
             user_name=username,
             role=role,
             action="Toggle Scale Simulation",
-            ip="127.0.0.1",
+            ip=request.client.host if request.client else "0.0.0.0",
             details=f"High scale optimization simulation (10,000 devices, 1M events) set to: {req.enabled}",
             status="Success"
         )

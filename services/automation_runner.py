@@ -53,7 +53,10 @@ from napalm import get_network_driver
 
 driver = get_network_driver('ios')
 for sw in ['sw-core-01', 'sw-core-02']:
-    with driver(sw, 'admin', 'Password123') as dev:
+    # Credentials should be fetched from Vault or environment
+    import os
+    device_password = os.environ.get("DEVICE_PASSWORD", "********")
+    with driver(sw, 'admin', device_password) as dev:
         dev.load_merge_candidate(config="vlan 10\\n name Servers\\n!")
         diff = dev.compare_config()
         if diff:
@@ -68,7 +71,10 @@ for sw in ['sw-core-01', 'sw-core-02']:
 from netmiko import ConnectHandler
 
 def deploy_bgp_map(device_ip):
-    net_connect = ConnectHandler(device_type='cisco_ios', host=device_ip, username='admin', password='Password123')
+    # Credentials should be fetched from Vault or environment
+    import os
+    device_password = os.environ.get("DEVICE_PASSWORD", "********")
+    net_connect = ConnectHandler(device_type='cisco_ios', host=device_ip, username='admin', password=device_password)
     commands = [
         'route-map LOCAL_PREF permit 10',
         ' set local-preference 200',

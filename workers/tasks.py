@@ -11,7 +11,7 @@ from automation.device_automation import DeviceAutomationManager
 import ai_engine
 import report_generator
 
-logger = logging.getLogger("celery_tasks")
+logger = logging.getLogger("noc.celery")
 
 @celery_app.task(name="workers.tasks.process_motadata_alert_task")
 def process_motadata_alert_task(req_data: dict):
@@ -21,7 +21,7 @@ def process_motadata_alert_task(req_data: dict):
     message = req_data["message"]
     severity = req_data["severity"]
     
-    print(f"[CELERY WORKER] Closed-loop troubleshooting active for alert: {alarm_id}")
+    logger.info("Celery closed-loop troubleshooting active", extra={"alarm_id": alarm_id})
     
     with next(get_db_context()) as db:
         # 1. Resolve target device

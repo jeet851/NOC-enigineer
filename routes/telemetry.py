@@ -1,9 +1,9 @@
+import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import json
 import random
 import os
-import redis
 from typing import Dict, Any
 
 from api.deps import get_db
@@ -11,20 +11,13 @@ from api.config import settings
 from services.device import DeviceService
 from services.telemetry import TelemetryService
 from services.alarm import AlarmService
+from services.redis_cache import RedisCacheManager
 from routes.config import active_scenarios_state
 import ai_engine
 
-router = APIRouter(prefix="/api", tags=["telemetry"])
+logger = logging.getLogger("noc.telemetry")
 
-# Redis Cache connection fallback
-redis_client = None
-try:
-    redis_client = redis.Redis.from_url(settings.REDIS_URL, socket_timeout=1)
-    redis_client.ping()
-    print("Redis cache connectivity verified in Telemetry route.")
-except Exception:
-    redis_client = None
-    print("Redis cache unreachable in Telemetry route. Running direct query.")
+router = APIRouter(prefix="/api", tags=["telemetry"])
 
 def calculate_network_scores() -> Dict[str, int]:
     scores = {
@@ -57,9 +50,9 @@ def calculate_network_scores() -> Dict[str, int]:
 
 @router.get("/telemetry")
 async def get_telemetry(db: Session = Depends(get_db)):
-    if redis_client:
+    if RedisCacheManager.ping():
         try:
-            cached_data = redis_client.get("noc_telemetry_cache")
+            cached_data = RedisCacheManager.get("noc_telemetry_cache")
             if cached_data:
                 return json.loads(cached_data)
         except Exception:
@@ -138,10 +131,13 @@ async def get_telemetry(db: Session = Depends(get_db)):
         "slackActive": slack_active
     }
 
-    if redis_client:
-        try:
-            redis_client.setex("noc_telemetry_cache", 3, json.dumps(telemetry_data))
-        except Exception:
-            pass
+    try:
+        RedisCacheManager.set(
+            "noc_telemetry_cache",
+            json.dumps(telemetry_data),
+            ex=settings.REDIS_CACHE_TTL_SECONDS
+        )
+    except Exception:
+        pass
             
     return telemetry_data

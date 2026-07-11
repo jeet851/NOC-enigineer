@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Request
 from sqlalchemy.orm import Session
 import uuid
 import random
@@ -19,11 +20,13 @@ from services.audit import AuditService
 
 router = APIRouter(prefix="/api", tags=["authentication"])
 
+logger = logging.getLogger("noc.auth")
+
 from services.redis_cache import RedisCacheManager
 import json
 
 @router.post("/login", response_model=LoginOtpResponse)
-async def api_login(req: LoginRequest, db: Session = Depends(get_db)):
+async def api_login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     username = req.username.strip().lower()
     password = req.password.strip()
     
@@ -37,7 +40,7 @@ async def api_login(req: LoginRequest, db: Session = Depends(get_db)):
             user_name=username or "unknown",
             role="N/A",
             action="Login Attempt Failed",
-            ip="127.0.0.1",
+            ip=request.client.host if request.client else "0.0.0.0",
             details="Invalid password credentials.",
             status="Failed"
         )
@@ -70,7 +73,7 @@ async def api_login(req: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/verify-otp", response_model=LoginSuccessResponse)
-async def api_verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
+async def api_verify_otp(req: VerifyOtpRequest, request: Request, db: Session = Depends(get_db)):
     challenge_id = req.challengeId
     otp_code = req.otp.strip()
     
@@ -89,7 +92,7 @@ async def api_verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
             user_name=challenge["username"],
             role="N/A",
             action="MFA Verification Failed",
-            ip="127.0.0.1",
+            ip=request.client.host if request.client else "0.0.0.0",
             details="Invalid OTP code entered.",
             status="Failed"
         )
@@ -128,7 +131,7 @@ async def api_verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
         user_name=username,
         role=user.role,
         action="Login Successful",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details="Zero-Trust session initiated with Access + Refresh tokens."
     )
     
@@ -144,7 +147,7 @@ async def api_verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/refresh", response_model=LoginSuccessResponse)
-async def api_refresh_token(req: TokenRefreshRequest, db: Session = Depends(get_db)):
+async def api_refresh_token(req: TokenRefreshRequest, request: Request, db: Session = Depends(get_db)):
     db_token = verify_refresh_token(db, req.refreshToken)
     if not db_token:
         raise HTTPException(
@@ -178,7 +181,7 @@ async def api_refresh_token(req: TokenRefreshRequest, db: Session = Depends(get_
         user_name=user.username,
         role=user.role,
         action="Token Refreshed",
-        ip="127.0.0.1",
+        ip=request.client.host if request.client else "0.0.0.0",
         details="Access token regenerated via valid refresh token exchange."
     )
     
@@ -217,7 +220,7 @@ async def api_logout(authorization: Optional[str] = Header(None), db: Session = 
                     user_name=username,
                     role=role,
                     action="Logout Successful",
-                    ip="127.0.0.1",
+                    ip="0.0.0.0",  # logout has no request context easily available
                     details="Session context destroyed. Active refresh tokens invalidated."
                 )
         except Exception:

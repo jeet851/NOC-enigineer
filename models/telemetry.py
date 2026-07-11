@@ -24,5 +24,13 @@ class TelemetryLog(Base):
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     disk_utilization: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
+    # Telemetry updates
+    bw_in: Mapped[Optional[float]] = mapped_column(Float, nullable=True)          # Incoming bandwidth Mbps
+    bw_out: Mapped[Optional[float]] = mapped_column(Float, nullable=True)         # Outgoing bandwidth Mbps
+    vpn_tunnels_up: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # Count of active tunnels
+    bgp_peer_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True) # BGP session status
+    ospf_neighbor_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    fw_sessions: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     # Relationships
     device: Mapped["Device"] = relationship("Device")

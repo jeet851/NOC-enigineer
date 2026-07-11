@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, DateTime, Float
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.base import Base
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class Incident(Base):
     __tablename__ = "incidents"
@@ -28,3 +28,9 @@ class Incident(Base):
     repair_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     engineering_report: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    assigned_to: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Relationships
+    timeline_events: Mapped[List["IncidentTimeline"]] = relationship("IncidentTimeline", back_populates="incident", cascade="all, delete-orphan")

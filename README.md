@@ -135,3 +135,18 @@ Try typing command prompts like `"VPN is down"` or `"Server CPU is 100%"`, and i
 - **Talk in DMs**: Go to App Home or search for `@AssistantBot` in your DMs and chat directly.
 - **Change persona**: Type `/bot-persona` or click the button in help menus to choose another assistant type.
 - **Show help**: Type `/bot-help` to inspect capabilities.
+
+---
+
+## Enterprise Production-Ready Backend Hardening (Phase 1)
+
+This project has been hardened for enterprise-grade production environments with the following enhancements:
+
+- **Centralized Configuration**: Managed using Pydantic Settings with full validations. See [docs/CONFIGURATION.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/CONFIGURATION.md).
+- **Structured JSON Logging**: Named logging namespaces with file rotation policies. See [docs/LOGGING.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/LOGGING.md).
+- **Centralized Error Handling**: 17 new custom domain exception classes mapping to unified standard responses. See [api/exceptions.py](file:///c:/Users/GANESH/Downloads/NOC-enigineer/api/exceptions.py).
+- **Zero-Trust Hardening**: Capturing real client IP in audit logs, rate-limiting via SlowAPI, and secure HTTP response headers. See [docs/SECURITY.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/SECURITY.md).
+- **Database Schema & Migrations**: Integrated database migration versions via Alembic. See [docs/MIGRATIONS.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/MIGRATIONS.md) and [docs/DATABASE_SCHEMA.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/DATABASE_SCHEMA.md).
+- **Core Architecture Layout**: Detailed component interaction diagram. See [docs/ARCHITECTURE.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/ARCHITECTURE.md).
+- **API Reference**: Comprehensive endpoint documentation. See [docs/API_OVERVIEW.md](file:///c:/Users/GANESH/Downloads/NOC-enigineer/docs/API_OVERVIEW.md).
+
