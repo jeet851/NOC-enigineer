@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC AI Copilot - Enterprise Operations Center</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Third-party Chat Enhancements -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    
+    <!-- Real-time Socket.IO Client Link -->
+    <script src="/socket.io.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ========================================================
+         ZERO-TRUST LOGIN OVERLAY (Password + OTP MFA)
+         ======================================================== -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-card">
+            <div class="brand-logo" style="margin: 0 auto 1.5rem auto;">
+                <i class="fa-solid fa-shield-halved" style="font-size:1.5rem; color:white;"></i>
+            </div>
+            <h2>Zero-Trust Authentication</h2>
+            <p>Please authenticate to access the NOC AI Copilot.</p>
+            <div id="login-error-msg" class="login-error" style="display:none; color: var(--critical); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.75rem; border-radius: 8px; font-size: 0.8rem; margin-bottom: 1rem; text-align: center;">
+                Invalid credentials. Access denied.
+            </div>
+            
+            <!-- Phase 1: Password Login Form -->
+            <form id="login-form">
+                <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 0.35rem; color: var(--text-muted);">Operator Username</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="e.g. admin, senior_eng, net_eng" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 0.35rem; color: var(--text-muted);">Security Password</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem; padding:0.6rem; font-weight:600;">
+                    Verify Password <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
+                </button>
+            </form>
+
+            <!-- Phase 2: MFA Verification Form -->
+            <form id="mfa-form" style="display:none;">
+                <input type="hidden" id="mfa-challenge-id">
+                <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 0.35rem; color: var(--text-muted);">Multi-Factor Authentication (OTP)</label>
+                    <input type="text" id="mfa-code" class="form-control" placeholder="6-digit token code" maxlength="6" required style="font-family:'Fira Code', monospace; letter-spacing:4px; text-align:center; font-size:1.1rem;">
+                    <p class="help-block" style="margin-top:0.75rem; color:var(--warning); font-size:0.75rem; text-align: center;">
+                        <i class="fa-solid fa-clock"></i> Simulated Hardware Token OTP: <strong id="mfa-simulated-display" style="font-family:'Fira Code', monospace; border-bottom:1px dashed var(--warning);">------</strong>
+                    </p>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem; padding:0.6rem; font-weight:600;">
+                    Confirm Identity & Log In <i class="fa-solid fa-circle-check" style="margin-left:0.5rem;"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MAIN APPLICATION LAYOUT
+         ======================================================== -->
+    <div class="app-container">
+        
+        <!-- LEFT SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <div class="brand-info">
+                    <h2>NOC AI Copilot</h2>
+                    <span>Zero Trust AI Engineer</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard" id="nav-dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="control-room" id="nav-control-room">
+                    <i class="fa-solid fa-kit-medical"></i>
+                    <span>Live Incidents</span>
+                    <span class="badge count-badge" id="active-incidents-count">2</span>
+                </button>
+                <button class="nav-item" data-tab="investigation" id="nav-investigation">
+                    <i class="fa-solid fa-radar"></i>
+                    <span>AI Investigation</span>
+                </button>
+                <button class="nav-item" data-tab="health" id="nav-health">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span>Network Health</span>
+                </button>
+                <button class="nav-item" data-tab="topology" id="nav-topology">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>Topology</span>
+                </button>
+                <button class="nav-item" data-tab="inventory" id="nav-inventory">
+                    <i class="fa-solid fa-server"></i>
+                    <span>Device Inventory</span>
+                </button>
+                <button class="nav-item" data-tab="cli" id="nav-cli">
+                    <i class="fa-solid fa-terminal"></i>
+                    <span>Live CLI</span>
+                </button>
+                <button class="nav-item" data-tab="packets" id="nav-packets">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <span>Packet Analyzer</span>
+                </button>
+                <button class="nav-item" data-tab="congestion" id="nav-congestion">
+                    <i class="fa-solid fa-shuffle"></i>
+                    <span>Traffic Analytics</span>
+                </button>
+                <button class="nav-item" data-tab="automation" id="nav-automation">
+                    <i class="fa-solid fa-file-shield"></i>
+                    <span>Config Manager</span>
+                </button>
+                <button class="nav-item" data-tab="playbooks" id="nav-playbooks">
+                    <i class="fa-solid fa-gears"></i>
+                    <span>Automation Playbooks</span>
+                </button>
+                <button class="nav-item" data-tab="remediation" id="nav-remediation">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Auto Remediation</span>
+                </button>
+                <button class="nav-item" data-tab="reports" id="nav-reports">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Incident Reports</span>
+                </button>
+                <button class="nav-item" data-tab="kb" id="nav-kb">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                    <span>Knowledge Base</span>
+                </button>
+                <button class="nav-item" data-tab="vault" id="nav-vault">
+                    <i class="fa-solid fa-vault"></i>
+                    <span>Credential Vault</span>
+                </button>
+                <button class="nav-item" data-tab="audit" id="nav-audit">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>Security Audit Logs</span>
+                </button>
+                <button class="nav-item" data-tab="zero-trust" id="nav-zero-trust">
+                    <i class="fa-solid fa-fingerprint"></i>
+                    <span>Zero Trust Center</span>
+                </button>
+                <button class="nav-item" data-tab="scale" id="nav-scale">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    <span>System Scale & Tuning</span>
+                </button>
+                <button class="nav-item" data-tab="settings" id="nav-settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile-widget" id="user-profile-widget">
+                    <div style="font-size:0.8rem; font-weight:700; color:white;" id="user-display-name">Unknown Operator</div>
+                    <div style="font-size:0.65rem; color:var(--primary); font-weight:600; text-transform:uppercase; margin-bottom:0.4rem;" id="user-display-role">Guest Mode</div>
+                    <button class="btn btn-sm btn-outline" id="btn-logout" style="width:100%; font-size:0.7rem; padding:0.2rem; border-color: rgba(239, 68, 68, 0.3); color: var(--critical);">
+                        <i class="fa-solid fa-power-off"></i> Logout
+                    </button>
+                </div>
+                <div class="system-status">
+                    <div class="status-indicator online"></div>
+                    <span class="status-text">Zero-Trust Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- TOP NAVIGATION -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="global-search">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                    <input type="text" placeholder="Global search network objects...">
+                </div>
+                
+                <div class="indicator" id="indicator-workspace" title="Active Workspace Segment">
+                    <i class="fa-solid fa-folder-tree" style="color: var(--primary);"></i>
+                    <select id="header-workspace-select" style="background: transparent; border: none; color: white; font-family: inherit; font-size: 0.75rem; outline: none; cursor: pointer; padding-right: 0.5rem;">
+                        <option value="prod-wan" style="background: var(--card-bg); color: white;">Production WAN</option>
+                        <option value="corp-lan" style="background: var(--card-bg); color: white;">Corporate LAN</option>
+                        <option value="cloud-vpc" style="background: var(--card-bg); color: white;">Cloud VPC Backbone</option>
+                        <option value="edge-dmz" style="background: var(--card-bg); color: white;">DMZ Perimeter Edge</option>
+                    </select>
+                </div>
+
+                <div class="indicator" id="indicator-health-pct" title="Global Infrastructure Health">
+                    <i class="fa-solid fa-heart-pulse" style="color: var(--healthy);"></i>
+                    <span style="font-size: 0.75rem; color: var(--text-normal);">Health: <strong style="color: var(--healthy);">96.4%</strong></span>
+                </div>
+
+                <div class="indicator" id="indicator-ai-mode" title="AI Operating Mode">
+                    <i class="fa-solid fa-brain" style="color: var(--primary);"></i>
+                    <span class="label" style="font-size: 0.75rem;">AI Status: <strong>Autonomous</strong></span>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="connection-indicators">
+                    <div class="indicator" id="indicator-slack" title="Slack integration status">
+                        <span class="dot offline"></span>
+                        <i class="fa-brands fa-slack"></i>
+                        <span class="label">Slack Link</span>
+                    </div>
+                    <div class="indicator" id="indicator-gemini" title="Gemini Engine connectivity">
+                        <span class="dot offline"></span>
+                        <i class="fa-solid fa-microchip"></i>
+                        <span class="label">Gemini API</span>
+                    </div>
+                    <div class="indicator" id="indicator-sync-status" title="Realtime Network State Sync">
+                        <span class="dot online"></span>
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span class="label">Sync Active</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-icon btn-sm" id="btn-theme-toggle" title="Toggle Visual Theme" style="background: transparent; border: none; font-size: 0.9rem; color: var(--text-muted); cursor: pointer;">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+
+                <div style="color: var(--text-muted); border-left: 1px solid var(--border-color); padding-left: 1rem;" id="header-clock">
+                    --:--:--
+                </div>
+
+                <div id="header-user-info" style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; border-left: 1px solid var(--border-color); padding-left: 1rem;">
+                    <i class="fa-solid fa-user-gear" style="color: var(--primary);"></i>
+                    <span id="header-user-name" style="color: var(--text-light); font-weight: 600;">Admin</span>
+                </div>
+
+                <button class="btn btn-icon btn-sm" id="btn-notifications" title="System Alerts" style="background: transparent; border: none; position: relative;">
+                    <i class="fa-solid fa-bell" style="font-size: 1rem;"></i>
+                    <span class="status-indicator online" style="position: absolute; top: 0; right: 0; background: var(--critical);"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD -->
+        <main class="main-content">
+            <div class="content-body">
+                
+                <!-- ==========================================
+                     TAB PANEL: DASHBOARD (MAIN VIEW)
+                     ========================================== -->
+                <section class="tab-panel active" id="panel-dashboard">
+                    
+                    <!-- MAIN HEADER -->
+                    <div class="main-dashboard-header">
+                        <div class="greet">
+                            <h2 id="view-greeting">Good Morning, Administrator</h2>
+                            <p>Here is the global overview of your network segment infrastructure.</p>
+                        </div>
+                        <div class="dashboard-summary-stats">
+                            <div>
+                                <span>Network Status</span>
+                                <strong style="color: var(--healthy);" id="global-status-lbl"><i class="fa-solid fa-circle-check"></i> Healthy</strong>
+                            </div>
+                            <div>
+                                <span>Last Scan</span>
+                                <strong id="last-scan-time">Just now</strong>
+                            </div>
+                            <div>
+                                <span>Current AI Mode</span>
+                                <strong style="color: var(--primary);">Automatic Remediation</strong>
+                            </div>
+                            <div>
+                                <span>Current MTTR</span>
+                                <strong>8m 42s</strong>
+                            </div>
+                            <div>
+                                <span>Active Alerts</span>
+                                <strong style="color: var(--critical);" id="summary-alerts-count">2</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FIRST ROW: 6 KPI CARDS -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Devices Online</span>
+                                <i class="fa-solid fa-server kpi-icon"></i>
+                            </div>
+                            <div class="kpi-value" id="kpi-devices-online">12 / 13</div>
+                            <div class="kpi-footer">
+                                <span class="trend-up"><i class="fa-solid fa-caret-up"></i> +1 dynamic link</span>
+                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">92%</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Critical Alerts</span>
+                                <i class="fa-solid fa-circle-exclamation kpi-icon" style="color: var(--critical);"></i>
+                            </div>
+                            <div class="kpi-value" style="color: var(--critical);" id="kpi-critical-alerts">1</div>
+                            <div class="kpi-footer">
+                                <span class="trend-down"><i class="fa-solid fa-caret-up"></i> +1 unresolved</span>
+                                <span class="status-badge critical" style="font-size: 0.55rem; padding: 0 0.2rem;">Action</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Warning Alerts</span>
+                                <i class="fa-solid fa-triangle-exclamation kpi-icon" style="color: var(--warning);"></i>
+                            </div>
+                            <div class="kpi-value" style="color: var(--warning);" id="kpi-warning-alerts">1</div>
+                            <div class="kpi-footer">
+                                <span class="trend-up"><i class="fa-solid fa-caret-down"></i> -2 cleared today</span>
+                                <span class="status-badge warning" style="font-size: 0.55rem; padding: 0 0.2rem;">Review</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Average Latency</span>
+                                <i class="fa-solid fa-gauge-high kpi-icon"></i>
+                            </div>
+                            <div class="kpi-value" id="kpi-avg-latency">4.2 ms</div>
+                            <div class="kpi-footer">
+                                <span class="trend-up"><i class="fa-solid fa-caret-down"></i> -0.5 ms drop</span>
+                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">Optimal</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Auto Fixed Today</span>
+                                <i class="fa-solid fa-bolt-lightning kpi-icon" style="color: var(--info);"></i>
+                            </div>
+                            <div class="kpi-value" style="color: var(--info);" id="kpi-auto-fixed">2</div>
+                            <div class="kpi-footer">
+                                <span class="trend-up"><i class="fa-solid fa-check"></i> 100% success</span>
+                                <span class="status-badge info" style="font-size: 0.55rem; padding: 0 0.2rem;">Healed</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-title">AI Accuracy</span>
+                                <i class="fa-solid fa-brain kpi-icon" style="color: var(--ai-accent);"></i>
+                            </div>
+                            <div class="kpi-value" id="kpi-ai-accuracy">99.4%</div>
+                            <div class="kpi-footer">
+                                <span>NIST SP 800-207</span>
+                                <span class="status-badge healthy" style="font-size: 0.55rem; padding: 0 0.2rem;">Secure</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECOND ROW -->
+                    <div class="dashboard-row-2">
+                        <!-- LEFT PANEL: Active Incident Queue -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Active Incident Queue</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="node-table" id="dashboard-incident-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Severity</th>
+                                            <th>Device</th>
+                                            <th>Technology</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                            <th>Assigned AI</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Populated dynamically via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- CENTER PANEL: AI Root Cause Analysis -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>AI Root Cause Analysis (RCA)</h3>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <span id="rca-severity-badge" class="status-badge critical">CRITICAL</span>
+                                    <div style="font-family: monospace; font-size: 0.7rem; color: var(--text-muted);" id="rca-header-id">Incident ID: INC-402</div>
+                                </div>
+                            </div>
+                            <div class="rca-details">
+                                <div class="rca-grid-2">
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Affected Device:</span>
+                                        <strong id="rca-affected-device" style="color: white; display: block; margin-top: 2px;">router-hq</strong>
+                                    </div>
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Vendor / Tech:</span>
+                                        <strong id="rca-tech-vendor" style="color: white; display: block; margin-top: 2px;">Cisco / IPsec VPN</strong>
+                                    </div>
+                                </div>
+                                <div class="rca-grid-2">
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Confidence Score:</span>
+                                        <strong style="color: var(--primary); display: block; margin-top: 2px;" id="rca-confidence">95%</strong>
+                                    </div>
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Estimated Repair Time:</span>
+                                        <strong id="rca-repair-time" style="color: var(--primary); display: block; margin-top: 2px;">15 mins</strong>
+                                    </div>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted);">Business Impact Assessment:</span>
+                                    <p id="rca-business-impact" style="color: var(--text-muted); margin-top: 2px; font-size: 0.7rem; line-height: 1.3;">N/A</p>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted);">Current Root Cause:</span>
+                                    <p id="rca-root-cause-text" style="color: var(--text-normal); margin-top: 2px; line-height: 1.3;">IPsec VPN Phase 1 Tunnel negotiation failed with LIFETIME_MISMATCH.</p>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted);">Collected Evidence:</span>
+                                    <div id="rca-evidence-box" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; max-height: 60px; overflow-y: auto;">
+                                        • Syslog Lifetime Rekey timeout<br>• Packet drop on Outside Gi1/0/1
+                                    </div>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted);">Remediation Patch (CLI Commands):</span>
+                                    <pre id="rca-recommended-fix" style="font-family:'Fira Code', monospace; font-size: 0.7rem; color: var(--healthy); margin-top: 4px; overflow-x: auto; background: rgba(0,0,0,0.2); padding: 0.25rem;">crypto isakmp policy 10\n lifetime 28800</pre>
+                                </div>
+                                <div class="rca-grid-2">
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Verification Checks:</span>
+                                        <pre id="rca-verification-steps" style="font-family:'Fira Code', monospace; font-size: 0.65rem; color: var(--info); margin-top: 4px; overflow-x: auto; background: rgba(0,0,0,0.2); padding: 0.25rem;">show ip interface brief</pre>
+                                    </div>
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Rollback Plan:</span>
+                                        <pre id="rca-rollback-plan" style="font-family:'Fira Code', monospace; font-size: 0.65rem; color: var(--warning); margin-top: 4px; overflow-x: auto; background: rgba(0,0,0,0.2); padding: 0.25rem;">no crypto isakmp policy 10</pre>
+                                    </div>
+                                </div>
+                                <div class="rca-grid-2">
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Estimated Risk:</span>
+                                        <strong id="rca-risk-level" style="display: block; margin-top: 2px; color: var(--healthy);">Safe</strong>
+                                    </div>
+                                    <div class="rca-block">
+                                        <span style="color: var(--text-muted);">Approval Protocol:</span>
+                                        <strong id="rca-approval-req" style="display: block; margin-top: 2px; color: var(--warning);">Dual Operator</strong>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.25rem; align-items: center; justify-content: flex-end; margin-top: 0.5rem; flex-wrap: wrap;">
+                                    <button class="btn btn-sm btn-outline" id="btn-rca-view-report" style="color: var(--primary); border-color: var(--primary); font-weight: 600;"><i class="fa-solid fa-file-invoice"></i> View Engineering Report</button>
+                                    <button class="btn btn-sm btn-outline" id="btn-rca-diag" title="Run Diagnostic Sweeps">Run Diagnostics</button>
+                                    <button class="btn btn-sm btn-outline" id="btn-rca-gen-fix" title="Generate Configuration Patch">Generate Fix</button>
+                                    <button class="btn btn-sm btn-primary" id="btn-rca-fix" title="Execute Remediating Playbook">Execute</button>
+                                    <button class="btn btn-sm btn-danger" id="btn-rca-rollback" title="Rollback Applied Configs" disabled>Rollback</button>
+                                </div>
+                                
+                                <!-- engineering report overlay panel -->
+                                <div class="rca-block" id="rca-report-block" style="display: none; border-top: 1px solid var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
+                                    <span style="color: var(--primary); font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.75rem;">
+                                        <span><i class="fa-solid fa-file-lines"></i> AI Engineering Diagnostic Report</span>
+                                        <button class="btn btn-sm btn-outline" id="btn-rca-hide-report" style="font-size:0.6rem; padding: 0.1rem 0.3rem;">Hide</button>
+                                    </span>
+                                    <div id="rca-report-content" style="font-size: 0.75rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 6px; max-height: 250px; overflow-y: auto; color: var(--text-normal); font-family: sans-serif; line-height: 1.45;">
+                                        <!-- Rendered dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT PANEL: Network Health Status -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Network Health</h3>
+                            </div>
+                            <div class="segment-list">
+                                <div class="segment-item" id="health-internet">
+                                    <span>Internet</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                                <div class="segment-item" id="health-wan">
+                                    <span>WAN</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                                <div class="segment-item" id="health-lan">
+                                    <span>LAN</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                                <div class="segment-item" id="health-vpn">
+                                    <span>VPN</span>
+                                    <span class="status-badge critical">Critical</span>
+                                </div>
+                                <div class="segment-item" id="health-cloud">
+                                    <span>Cloud</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                                <div class="segment-item" id="health-firewall">
+                                    <span>Firewall</span>
+                                    <span class="status-badge warning">Warning</span>
+                                </div>
+                                <div class="segment-item" id="health-dns">
+                                    <span>DNS</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                                <div class="segment-item" id="health-dhcp">
+                                    <span>DHCP</span>
+                                    <span class="status-badge healthy">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- THIRD ROW -->
+                    <div class="dashboard-row-3">
+                        <!-- LEFT PANEL: Device Health Parameters -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Selected Device Health</h3>
+                                <select id="device-health-selector" class="form-control" style="max-width: 130px; font-size: 0.7rem; padding: 0.15rem 0.4rem; height: auto;">
+                                    <option value="router-hq">router-hq</option>
+                                    <option value="asa-edge-01">asa-edge-01</option>
+                                    <option value="db-srv-01">db-srv-01</option>
+                                    <option value="sw-core-01">sw-core-01</option>
+                                </select>
+                            </div>
+                            <div class="dev-health-list">
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>CPU Utilization</span>
+                                        <strong id="dh-cpu">45%</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-cpu-fill" style="width: 45%"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Memory Load</span>
+                                        <strong id="dh-ram">68%</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-ram-fill" style="width: 68%; background-color: var(--primary);"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Operating Temp</span>
+                                        <strong id="dh-temp">42°C</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-temp-fill" style="width: 42%; background-color: var(--warning);"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Link Bandwidth</span>
+                                        <strong id="dh-bandwidth">240 Mbps</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-bandwidth-fill" style="width: 24%; background-color: var(--info);"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Packet Drop Rate</span>
+                                        <strong id="dh-loss" class="warning-text">0.0%</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-loss-fill" style="width: 0%; background-color: var(--critical);"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Latency RTT</span>
+                                        <strong id="dh-latency">4.2 ms</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-latency-fill" style="width: 15%; background-color: var(--primary);"></div>
+                                    </div>
+                                </div>
+                                <div class="dev-health-item">
+                                    <div class="dev-health-label">
+                                        <span>Queue Errors</span>
+                                        <strong id="dh-errors" class="warning-text">0</strong>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="dh-errors-fill" style="width: 0%; background-color: var(--critical);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CENTER PANEL: AI Investigation Timeline -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>AI Investigation Timeline</h3>
+                                <span class="badge count-badge" id="timeline-status-badge" style="background: rgba(79, 140, 255, 0.1); border-color: rgba(79, 140, 255, 0.2); color: var(--primary);">Idle</span>
+                            </div>
+                            <div class="timeline-container" id="timeline-steps-container">
+                                <!-- Timelines are rendered dynamically via JS -->
+                            </div>
+                        </div>
+
+                        <!-- RIGHT PANEL: Recent Alarms List -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Recent System Alerts</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="node-table" id="dashboard-recent-alerts">
+                                    <thead>
+                                        <tr>
+                                            <th>Alarm</th>
+                                            <th>Device</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: TOPOLOGY VIEW
+                     ========================================== -->
+                <section class="tab-panel" id="panel-topology">
+                    <div class="topology-layout">
+                        <div class="card topology-map-card">
+                            <div class="card-header">
+                                <h3>Interactive Topology Viewer</h3>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <input type="text" id="topology-discovery-subnet" class="form-control" value="10.0.10.0/24" style="max-width:140px; font-size:0.75rem; padding: 0.2rem 0.5rem; height: auto;" placeholder="Subnet e.g. 10.0.10.0/24">
+                                    <button class="btn btn-sm btn-outline" id="btn-discover-topology"><i class="fa-solid fa-network-wired"></i> Run Discovery Scan</button>
+                                </div>
+                            </div>
+                            <div id="topology-canvas-container" style="flex: 1; background: #070A12; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; position: relative;">
+                                <canvas id="topology-canvas" style="position: absolute; top:0; left:0; width: 100%; height: 100%;"></canvas>
+                                <div class="topology-legend" style="position: absolute; bottom: 15px; left: 15px; background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.7rem; display: flex; gap: 0.8rem;">
+                                    <span><span style="display:inline-block; width:8px; height:8px; background:var(--healthy); border-radius:50%; vertical-align:middle; margin-right:4px;"></span> Active</span>
+                                    <span><span style="display:inline-block; width:8px; height:8px; background:var(--critical); border-radius:50%; vertical-align:middle; margin-right:4px;"></span> Outage</span>
+                                    <span><span style="display:inline-block; width:8px; height:8px; background:var(--warning); border-radius:50%; vertical-align:middle; margin-right:4px;"></span> Warning</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card topology-inspector-card" id="topology-inspector">
+                            <div class="card-header">
+                                <h3>Node Inspector</h3>
+                            </div>
+                            <div id="inspector-content" style="flex: 1; overflow-y: auto; font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; color: var(--text-muted);">
+                                <p>Click on any network node in the graph topology to inspect active details, physical interfaces, and routing adjacencies.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: LIVE CLI TERMINAL
+                     ========================================== -->
+                <section class="tab-panel" id="panel-cli">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Session Options & Command History -->
+                        <div class="card" style="flex: 1; max-width: 320px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>CLI Configuration</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.2rem 0.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Target Device</label>
+                                    <select id="cli-device-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="router-hq">router-hq (Cisco)</option>
+                                        <option value="asa-edge-01">asa-edge-01 (Cisco ASA)</option>
+                                        <option value="sw-core-01">sw-core-01 (Cisco Switch)</option>
+                                        <option value="sw-core-02">sw-core-02 (Cisco Switch)</option>
+                                        <option value="db-srv-01">db-srv-01 (Linux)</option>
+                                        <option value="app-srv-02">app-srv-02 (Linux)</option>
+                                        <option value="juniper-srx-edge">juniper-srx-edge (Juniper)</option>
+                                        <option value="arista-leaf-01">arista-leaf-01 (Arista)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Automation Framework</label>
+                                    <select id="cli-library-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="SSH">Raw SSHv2 Client</option>
+                                        <option value="Netmiko">Netmiko (ConnectionHandler)</option>
+                                        <option value="Nornir">Nornir (Scrapli/Netmiko Task)</option>
+                                        <option value="NAPALM">NAPALM (NetworkDriver)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Command History</h3>
+                            </div>
+                            <div id="cli-history-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; padding: 0.2rem 0.5rem;">
+                                <p style="font-size:0.7rem; color:var(--text-muted); text-align:center;">No command history stored.</p>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Live Terminal View -->
+                        <div class="card" style="flex: 2.5; display: flex; flex-direction: column; background: #040710; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; padding:0;">
+                            <div class="card-header" style="background: rgba(255,255,255,0.02); display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem;">
+                                <div style="display:flex; align-items:center; gap:0.4rem;">
+                                    <i class="fa-solid fa-terminal" style="color:var(--primary); font-size:0.85rem;"></i>
+                                    <h3 style="font-size:0.85rem; color:white; font-weight:700;">Live Session Console</h3>
+                                </div>
+                                <button class="btn btn-sm btn-outline" id="btn-export-cli" style="font-size:0.7rem; padding: 0.25rem 0.6rem;"><i class="fa-solid fa-download"></i> Export Session</button>
+                            </div>
+                            
+                            <div id="cli-terminal-body" style="flex: 1; background: #02040a; padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.75rem; color: var(--terminal-text); overflow-y: auto; white-space: pre-wrap; line-height: 1.45;">[NOC-SYSTEM] Secure Live CLI shell active. Enter a command in the input box below to execute.
+Examples: "show ip interface brief", "ping 8.8.8.8", "traceroute 10.0.10.5", "debug ip ospf packet", "monitor capture".</div>
+                            
+                            <div style="background: rgba(0,0,0,0.4); border-top: 1px solid var(--border-color); padding: 0.6rem; display: flex; gap: 0.5rem; align-items: center;">
+                                <span style="font-family:'Fira Code', monospace; font-size:0.75rem; color:var(--primary); font-weight:700; margin-left:0.25rem;">$</span>
+                                <input type="text" id="cli-command-input" class="form-control" style="flex:1; background:transparent; border:none; color:white; font-family:'Fira Code', monospace; font-size:0.75rem; outline:none;" placeholder="Enter command (e.g. show ip interface brief)..." autocomplete="off">
+                                <button class="btn btn-sm btn-primary" id="btn-run-cli" style="font-size:0.7rem; padding:0.35rem 0.8rem;">Execute</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: PACKET ANALYZER & SNIFFER
+                     ========================================== -->
+                <section class="tab-panel" id="panel-packets">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Sniff controls & statistics -->
+                        <div class="card" style="flex: 1; max-width: 320px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Sniff Configurations</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.2rem 0.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Capture Interface</label>
+                                    <select id="packet-interface-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="outside-eth0">outside-eth0 (WAN Edge)</option>
+                                        <option value="inside-eth1">inside-eth1 (Core Lan)</option>
+                                        <option value="tunnel10">tunnel10 (VPN Link)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Protocol Filter</label>
+                                    <select id="packet-protocol-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="All">All Traffic</option>
+                                        <option value="TCP">TCP Sessions Only</option>
+                                        <option value="UDP">UDP Streams Only</option>
+                                        <option value="DNS">DNS Queries/Replies</option>
+                                        <option value="HTTP">HTTP Web requests</option>
+                                        <option value="TLS">TLS Secure Handshakes</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex; gap:0.4rem; margin-top:0.25rem;">
+                                    <button class="btn btn-sm btn-primary" id="btn-start-sniff" style="flex:1;"><i class="fa-solid fa-play"></i> Start</button>
+                                    <button class="btn btn-sm btn-outline" id="btn-stop-sniff" style="flex:1;" disabled><i class="fa-solid fa-stop"></i> Stop</button>
+                                </div>
+                                <button class="btn btn-sm btn-outline" id="btn-export-pcap" style="width:100%; margin-top:0.25rem;"><i class="fa-solid fa-file-export"></i> Export binary PCAP</button>
+                            </div>
+                            
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Capture Anomalies</h3>
+                            </div>
+                            <div id="packet-anomalies-list" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0.4rem; padding:0.2rem 0.5rem;">
+                                <p style="font-size:0.7rem; color:var(--text-muted); text-align:center;">No anomalies flagged.</p>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Packets Grid & Decode views -->
+                        <div style="flex: 2.5; display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Top: Packet List Grid -->
+                            <div class="card" style="flex: 1.2; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem;">
+                                    <h3>Captured Packets Stream</h3>
+                                </div>
+                                <div style="flex: 1; overflow-y: auto;">
+                                    <table class="node-table" id="table-packets-grid" style="font-size:0.7rem; margin:0;">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:50px;">No.</th>
+                                                <th style="width:80px;">Time</th>
+                                                <th style="width:100px;">Source</th>
+                                                <th style="width:100px;">Destination</th>
+                                                <th style="width:70px;">Protocol</th>
+                                                <th style="width:60px;">Length</th>
+                                                <th>Info Summary</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="packets-grid-body">
+                                            <tr>
+                                                <td colspan="7" style="text-align:center; color:var(--text-muted); padding: 1.5rem 0;">Click "Start" to initiate live capture sweep.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Bottom: Protocol Decode & Hex view -->
+                            <div style="flex: 1; display: flex; gap: 1rem; height: 50%;">
+                                <!-- Left Bottom: Protocol Decode -->
+                                <div class="card" style="flex: 1.2; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+                                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.5rem 1rem;">
+                                        <h3>Protocol Details (Decode)</h3>
+                                    </div>
+                                    <div id="packet-decode-view" style="flex: 1; padding: 0.75rem; overflow-y: auto; font-size: 0.72rem; color: var(--text-normal); font-family: monospace; line-height: 1.45;">
+                                        Select a packet above to decode header fields.
+                                    </div>
+                                </div>
+                                
+                                <!-- Right Bottom: Hex dump -->
+                                <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+                                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.5rem 1rem;">
+                                        <h3>Hex / ASCII Dump</h3>
+                                    </div>
+                                    <div id="packet-hex-view" style="flex: 1; padding: 0.75rem; background: #010205; font-family: 'Fira Code', monospace; font-size: 0.65rem; color: var(--terminal-text); overflow-y: auto; white-space: pre;">
+                                        Select a packet above to view hexadecimal dump.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: LIVE PLAYBOOK CONTROL ROOM
+                     ========================================== -->
+                <section class="tab-panel" id="panel-control-room">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 350px);">
+                        <!-- Incidents List -->
+                        <div class="card" style="flex: 1; max-width: 320px; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Active Incidents Catalog</h3>
+                            </div>
+                            <div class="incidents-list" id="control-room-incidents-list" style="display:flex; flex-direction:column; gap:0.5rem; overflow-y:auto; flex:1;">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Incident Console View -->
+                        <div class="card" style="flex: 2; overflow-y: auto;" id="control-room-console">
+                            <div class="card-header" style="display: flex; justify-content: space-between;">
+                                <h3 id="cr-incident-title">IPsec VPN Tunnel Failure</h3>
+                                <span class="status-badge critical" id="cr-incident-severity">CRITICAL</span>
+                            </div>
+                            <div style="font-size: 0.8rem; background: rgba(0,0,0,0.15); padding: 0.65rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid var(--border-color);">
+                                <strong style="display:block; color:white; margin-bottom: 2px;">Alert Description:</strong>
+                                <p id="cr-incident-desc" style="color:var(--text-muted); line-height: 1.3;">IPsec tunnel stats between HQ Edge Router and AWS Virtual Private Gateway reports Phase 1 negotiation failure (LIFETIME_MISMATCH).</p>
+                            </div>
+                            
+                            <div class="workflow-steps" style="display:flex; flex-direction:column; gap:1rem;">
+                                <!-- Step 1 -->
+                                <div class="rca-block" id="step-card-diagnostics">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                        <strong style="color:white; font-size:0.85rem;"><i class="fa-solid fa-magnifying-glass"></i> Step 1: Run Diagnostics</strong>
+                                        <button class="btn btn-sm btn-primary" id="btn-run-diag">Run Diagnostic Scripts</button>
+                                    </div>
+                                    <div class="terminal-container" id="terminal-diag" style="display: none; background:#040710; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem; max-height: 150px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.7rem; color: var(--terminal-text);">
+                                        <div class="terminal-body" id="terminal-diag-output"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2 -->
+                                <div class="rca-block lock-disabled" id="step-card-healing">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                        <strong style="color:white; font-size:0.85rem;"><i class="fa-solid fa-cogs"></i> Step 2: Deploy Config & Healer</strong>
+                                        <button class="btn btn-sm btn-primary" id="btn-run-healing" disabled>Begin Deployment Sequence</button>
+                                    </div>
+                                    
+                                    <!-- Stepper Progress Tracker -->
+                                    <div id="deployment-wizard-container" style="display: none; margin-top: 0.75rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                                        <div class="wizard-stepper" style="display: flex; justify-content: space-between; margin-bottom: 1rem; font-size: 0.75rem; font-weight: 600;">
+                                            <span class="step-indicator" id="ind-step-val">1. Validation</span>
+                                            <span class="step-indicator" id="ind-step-sim">2. Simulation</span>
+                                            <span class="step-indicator" id="ind-step-app">3. Approvals</span>
+                                            <span class="step-indicator" id="ind-step-exec">4. Execution</span>
+                                            <span class="step-indicator" id="ind-step-ver">5. Verification</span>
+                                        </div>
+                                        <div id="wizard-content-box" style="margin-bottom: 0.75rem; padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); font-size: 0.75rem;"></div>
+                                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items:center;">
+                                            <label style="margin-right: auto; display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; cursor: pointer; color:var(--text-muted);">
+                                                <input type="checkbox" id="cb-simulate-fail">
+                                                <span>Simulate verification failure</span>
+                                            </label>
+                                            <button class="btn btn-sm btn-outline" id="btn-wizard-cancel">Cancel</button>
+                                            <button class="btn btn-sm btn-primary" id="btn-wizard-next" disabled>Proceed</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="terminal-container" id="terminal-healing" style="display: none; background:#040710; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem; max-height: 150px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.7rem; color: var(--terminal-text); margin-top: 0.5rem;">
+                                        <div class="terminal-body" id="terminal-healing-output"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3 -->
+                                <div class="rca-block lock-disabled" id="step-card-rca">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                        <strong style="color:white; font-size:0.85rem;"><i class="fa-solid fa-file-text"></i> Step 3: Incident RCA Reports</strong>
+                                        <button class="btn btn-sm btn-success" id="btn-run-rca" disabled>Generate Report</button>
+                                    </div>
+                                    <div class="rca-output-container" id="rca-document-view" style="display: none; margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                                        <div class="rca-body" id="rca-document-content"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: TRAFFIC ANALYTICS
+                     ========================================== -->
+                <section class="tab-panel" id="panel-congestion">
+                    <div class="topology-layout" style="height: calc(100vh - 350px);">
+                        <div class="card" style="flex:1.5;">
+                            <div class="card-header">
+                                <h3>Asymmetric Routing Path Trace</h3>
+                            </div>
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem;">Trace live route paths to audit symmetry and stateful packet flow alignments.</p>
+                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                                <input type="text" id="asym-src" class="form-control" value="mumbai-gw" style="max-width:180px;">
+                                <input type="text" id="asym-dst" class="form-control" value="router-hq" style="max-width:180px;">
+                                <button class="btn btn-primary btn-sm" id="btn-check-asymmetry">Trace Routing Symmetry</button>
+                            </div>
+                            <div id="asymmetry-result" style="display:none; background:#040710; border:1px solid var(--border-color); border-radius:8px; padding:0.75rem;"></div>
+                        </div>
+                        <div class="card" style="flex:1;">
+                            <div class="card-header">
+                                <h3>Congestion Analysis & Link Utilization</h3>
+                            </div>
+                            <div class="segment-list">
+                                <div class="segment-item">
+                                    <span>WAN Link Egress Utilization</span>
+                                    <span style="color:var(--warning); font-weight:700;">88.4%</span>
+                                </div>
+                                <div class="segment-item">
+                                    <span>Interface Queue Drops</span>
+                                    <span style="color:var(--warning); font-weight:700;">4.2%</span>
+                                </div>
+                                <div class="segment-item">
+                                    <span>TCP Retransmission Ratio</span>
+                                    <span style="color:var(--critical); font-weight:700;">6.7%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: CREDENTIAL VAULT
+                     ========================================== -->
+                <section class="tab-panel" id="panel-vault">
+                    <div class="topology-layout" style="height: calc(100vh - 350px);">
+                        <div class="card" style="flex: 1; max-width: 320px;">
+                            <div class="card-header">
+                                <h3>Store Credentials Secret</h3>
+                            </div>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Secret Name / Alias</label>
+                                    <input type="text" id="vault-secret-name" class="form-control" placeholder="e.g. core-ssh-key">
+                                </div>
+                                <div class="form-group">
+                                    <label>Category</label>
+                                    <select id="vault-secret-type" class="form-control">
+                                        <option value="SSH Key">SSH Key</option>
+                                        <option value="API Key">API Key</option>
+                                        <option value="SNMP Auth">SNMPv3 Community</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Secret Plaintext Value</label>
+                                    <input type="password" id="vault-secret-value" class="form-control" placeholder="Enter key password">
+                                </div>
+                                <button class="btn btn-primary" id="btn-save-vault-secret"><i class="fa-solid fa-lock"></i> Store in Vault</button>
+                            </div>
+                        </div>
+                        <div class="card" style="flex: 2;">
+                            <div class="card-header">
+                                <h3>AES-256 Vault Records Store</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="node-table" id="vault-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Secret Alias</th>
+                                            <th>Category</th>
+                                            <th>Ciphertext Value</th>
+                                            <th>Action Operations</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vault-table-body">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: AUDIT LOGS
+                     ========================================== -->
+                <section class="tab-panel" id="panel-audit">
+                    <div class="card" style="height: calc(100vh - 350px);">
+                        <div class="card-header" style="display: flex; justify-content: space-between;">
+                            <h3>Zero-Trust Security Audit Logs</h3>
+                            <button class="btn btn-sm btn-outline" id="btn-refresh-audit"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="node-table" id="audit-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Operator</th>
+                                        <th>Role</th>
+                                        <th>IP Address</th>
+                                        <th>Action</th>
+                                        <th>Security Status</th>
+                                        <th>Rollback</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-table-body">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: ZERO TRUST CENTER
+                     ========================================== -->
+                <section class="tab-panel" id="panel-zero-trust">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px); overflow-y: auto; flex-direction: column;">
+                        <!-- Row 1: Zero Trust Summary and Authenticator Simulator -->
+                        <div style="display: flex; gap: 1rem;">
+                            <!-- Zero Trust Policy Status Card -->
+                            <div class="card" style="flex: 1; min-height: 250px;">
+                                <div class="card-header">
+                                    <h3>Zero Trust Policy Dashboard</h3>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.8rem; padding: 0.5rem; font-size: 0.8rem;">
+                                    <div class="server-config-item" style="border-left: 4px solid var(--healthy); background: rgba(16, 185, 129, 0.05); display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Multi-Factor Authentication:</span>
+                                        <span class="status-badge healthy" style="font-weight:700;">STRICT / TOTP ACTIVE</span>
+                                    </div>
+                                    <div class="server-config-item" style="border-left: 4px solid var(--healthy); background: rgba(16, 185, 129, 0.05); display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Role-Based Access Control:</span>
+                                        <span class="status-badge healthy" style="font-weight:700;">ENFORCED</span>
+                                    </div>
+                                    <div class="server-config-item" style="border-left: 4px solid var(--healthy); background: rgba(16, 185, 129, 0.05); display: flex; justify-content: space-between; align-items: center;">
+                                        <span>API Authentication:</span>
+                                        <span class="status-badge healthy" style="font-weight:700;">JWT ENCRYPTED</span>
+                                    </div>
+                                    <div class="server-config-item" id="zt-local-cert-status-item" style="border-left: 4px solid var(--healthy); background: rgba(16, 185, 129, 0.05); display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Local HTTPS Trust (SSL):</span>
+                                        <span class="status-badge healthy" id="zt-local-cert-badge">VERIFYING...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Authenticator Simulator Widget -->
+                            <div class="card" style="flex: 1.2; min-height: 250px; display: flex; flex-direction: column;">
+                                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3>MFA Authenticator Simulator</h3>
+                                    <span style="font-size:0.65rem; color:var(--text-muted); font-family:monospace;" id="zt-mfa-username">User: Guest</span>
+                                </div>
+                                <div style="flex: 1; display: flex; align-items: center; justify-content: space-around; padding: 1rem;">
+                                    <div style="display: flex; flex-direction: column; gap: 0.5rem; max-width: 60%;">
+                                        <h4 style="font-size:0.75rem; color:white;">TOTP Shared Secret Key</h4>
+                                        <div style="font-family:'Fira Code', monospace; font-size:0.75rem; color:var(--warning); background:rgba(0,0,0,0.3); padding:0.35rem 0.6rem; border-radius:4px; border:1px solid var(--border-color);" id="zt-mfa-secret">
+                                            UNKNOWNKEY123
+                                        </div>
+                                        <p style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                                            This time-based key rotates standard 6-digit verification codes every 30 seconds. Scan this key in Google Authenticator or check the current token.
+                                        </p>
+                                    </div>
+                                    
+                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.4rem;">
+                                        <div class="totp-timer-container">
+                                            <svg width="80" height="80" class="totp-svg">
+                                                <circle cx="40" cy="40" r="34" class="totp-circle-bg"></circle>
+                                                <circle cx="40" cy="40" r="34" class="totp-circle-fg" id="totp-timer-ring" style="stroke-dasharray: 213.6; stroke-dashoffset: 0;"></circle>
+                                                <text x="40" y="45" class="totp-seconds-lbl" id="totp-seconds-txt">30s</text>
+                                            </svg>
+                                        </div>
+                                        <div style="font-family:'Fira Code', monospace; font-size:1.6rem; font-weight:700; color:var(--primary); letter-spacing: 2px;" id="zt-mfa-token">
+                                            000000
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Secrets Expiry auditor & Key Rotation -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Secrets Manager & SSH Key Rotation</h3>
+                            </div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); margin-left: 1rem; margin-bottom: 0.5rem;">
+                                Verify creation dates, expiration schedules, and rotate SSH credentials cryptographically with dynamic verification updates.
+                            </p>
+                            <div class="table-wrapper">
+                                <table class="node-table" style="font-size: 0.75rem; margin-bottom:0.5rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Secret Alias</th>
+                                            <th>Type</th>
+                                            <th>Created At</th>
+                                            <th>Expires In</th>
+                                            <th>Last Rotated</th>
+                                            <th>Decryption Access Count</th>
+                                            <th>Rotation Operation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zt-secrets-tbody">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: RBAC Configuration & Certificate Validator -->
+                        <div style="display: flex; gap: 1rem;">
+                            <!-- RBAC Controls -->
+                            <div class="card" style="flex: 1.2;">
+                                <div class="card-header">
+                                    <h3>RBAC Policy & User Role Console</h3>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.8rem; padding: 0.5rem;">
+                                    <div class="table-wrapper" style="max-height: 180px; overflow-y: auto;">
+                                        <table class="node-table" style="font-size: 0.68rem; margin: 0;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Role</th>
+                                                    <th>Read NOC</th>
+                                                    <th>Edit Config</th>
+                                                    <th>Decrypt Secrets</th>
+                                                    <th>Rotate Keys</th>
+                                                    <th>Change Roles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><strong>Admin</strong></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Operator</strong></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i> (Needs Admin/Operator Approval)</td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Engineer</strong></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i> (Needs Operator Approval)</td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Read Only / Guest</strong></td>
+                                                    <td><i class="fa-solid fa-check text-healthy"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                    <td><i class="fa-solid fa-xmark text-critical"></i></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- Role update Form (restricted to Admin) -->
+                                    <div style="background: rgba(255,255,255,0.02); padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); display: flex; gap: 0.5rem; align-items: center;">
+                                        <span style="font-size: 0.72rem; font-weight: 600; color: white;">Manage Operator Role:</span>
+                                        <select id="zt-user-select" class="form-control" style="font-size:0.72rem; padding: 0.2rem 0.5rem; height: auto; max-width: 120px;">
+                                            <option value="admin">admin</option>
+                                            <option value="operator">operator</option>
+                                            <option value="engineer">engineer</option>
+                                            <option value="read_only">read_only</option>
+                                        </select>
+                                        <span style="color:var(--text-muted); font-size:0.7rem;">to</span>
+                                        <select id="zt-role-select" class="form-control" style="font-size:0.72rem; padding: 0.2rem 0.5rem; height: auto; max-width: 120px;">
+                                            <option value="Admin">Admin</option>
+                                            <option value="Operator">Operator</option>
+                                            <option value="Engineer">Engineer</option>
+                                            <option value="Read Only">Read Only</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-primary" id="btn-zt-update-role" style="font-size:0.7rem; padding: 0.2rem 0.5rem;"><i class="fa-solid fa-user-shield"></i> Save Role</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Certificate Validator -->
+                            <div class="card" style="flex: 1;">
+                                <div class="card-header">
+                                    <h3>Cryptographic Certificate Validator</h3>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.6rem; padding: 0.5rem; font-size: 0.75rem;">
+                                    <div style="display: flex; gap: 0.4rem;">
+                                        <select id="zt-cert-type" class="form-control" style="max-width: 100px; font-size: 0.75rem; height: auto; padding: 0.25rem;">
+                                            <option value="domain">Domain</option>
+                                            <option value="pem">PEM text</option>
+                                        </select>
+                                        <input type="text" id="zt-cert-input" class="form-control" placeholder="e.g. google.com or paste PEM" style="font-size:0.75rem;">
+                                        <button class="btn btn-sm btn-primary" id="btn-zt-validate-cert">Validate</button>
+                                    </div>
+                                    <textarea id="zt-cert-pem-area" class="form-control" placeholder="-----BEGIN CERTIFICATE-----\n..." style="display:none; font-family:'Fira Code', monospace; font-size:0.7rem; min-height: 80px;"></textarea>
+                                    
+                                    <div id="zt-cert-result" style="display: none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem;">
+                                        <!-- Loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: SYSTEM SCALE & TUNING
+                     ========================================== -->
+                <section class="tab-panel" id="panel-scale">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px); overflow-y: auto; flex-direction: column;">
+                        <!-- Row 1: System Optimization Summary Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                            <!-- Event rate -->
+                            <div class="card" style="min-height: 110px; display: flex; flex-direction: column; justify-content: center; padding: 1rem;">
+                                <span style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Event Processing Rate</span>
+                                <span id="opt-event-rate" style="font-size: 1.8rem; font-weight: 700; color: var(--primary); margin-top: 5px;">0 / sec</span>
+                                <span style="font-size:0.62rem; color:var(--text-muted); margin-top:3px;">Goal: 20,000 / sec</span>
+                            </div>
+                            <!-- Total Events -->
+                            <div class="card" style="min-height: 110px; display: flex; flex-direction: column; justify-content: center; padding: 1rem;">
+                                <span style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Total Pipeline Events</span>
+                                <span id="opt-total-events" style="font-size: 1.8rem; font-weight: 700; color: var(--warning); margin-top: 5px;">0</span>
+                                <span style="font-size:0.62rem; color:var(--text-muted); margin-top:3px;">Max Scale: 1,000,000</span>
+                            </div>
+                            <!-- DB WAL latency -->
+                            <div class="card" style="min-height: 110px; display: flex; flex-direction: column; justify-content: center; padding: 1rem;">
+                                <span style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Database Write Latency</span>
+                                <span id="opt-db-latency" style="font-size: 1.8rem; font-weight: 700; color: var(--healthy); margin-top: 5px;">0 ms</span>
+                                <span style="font-size:0.62rem; color:var(--text-muted); margin-top:3px;">Engine: SQLite WAL Mode</span>
+                            </div>
+                            <!-- Redis Cache hits -->
+                            <div class="card" style="min-height: 110px; display: flex; flex-direction: column; justify-content: center; padding: 1rem;">
+                                <span style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Redis Cache Hit Ratio</span>
+                                <span id="opt-cache-hit" style="font-size: 1.8rem; font-weight: 700; color: var(--info); margin-top: 5px;">0.0%</span>
+                                <span style="font-size:0.62rem; color:var(--text-muted); margin-top:3px;">In-Memory Lookup fallbacks</span>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: 10,000 Devices Simulator and Scaling status -->
+                        <div style="display: flex; gap: 1rem;">
+                            <!-- Simulation Control Card -->
+                            <div class="card" style="flex: 1; padding: 1rem;">
+                                <div class="card-header">
+                                    <h3>High Scale Inventory Simulator</h3>
+                                </div>
+                                <p style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 1rem;">
+                                    Simulate scaling the network inventory to 10,000 devices. In simulation mode, telemetry processing shifts to a high-concurrency Redis caching structure, achieving load throughputs up to 20,000 metrics/sec.
+                                </p>
+                                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                                        <span style="font-size:0.8rem; font-weight:700; color:white;" id="sim-status-label">Simulation Stopped</span>
+                                        <span style="font-size:0.65rem; color:var(--text-muted);">Capacity: 5 Real Devices</span>
+                                    </div>
+                                    <button class="btn btn-primary" id="btn-toggle-simulation" style="font-size: 0.75rem; padding: 0.4rem 1rem;">
+                                        <i class="fa-solid fa-play"></i> Start 10k Scale
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Cluster status and Worker Tuning -->
+                            <div class="card" style="flex: 1.2; padding: 1rem;">
+                                <div class="card-header">
+                                    <h3>Horizontal Scaled Nodes & Workers</h3>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.75rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+                                        <span>Active API Server Nodes (Load Balanced):</span>
+                                        <span id="opt-api-nodes" class="status-badge info">1 Node</span>
+                                    </div>
+                                    <div style="display: justify-content: space-between; align-items: center; display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+                                        <span>Celery Background Workers (Distributed):</span>
+                                        <span id="opt-worker-nodes" class="status-badge info">2 Workers</span>
+                                    </div>
+                                    <div style="display: justify-content: space-between; align-items: center; display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+                                        <span>RabbitMQ Cluster Broker status:</span>
+                                        <span id="opt-rabbitmq-status" class="status-badge healthy">HEALTHY</span>
+                                    </div>
+                                    <div style="display: justify-content: space-between; align-items: center; display: flex;">
+                                        <span>Rate Limit Triggers blocked (IPs):</span>
+                                        <span id="opt-blocked-ips" class="status-badge critical">0 blocked</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Telemetry pipeline chart simulation -->
+                        <div class="card" style="padding: 1rem;">
+                            <div class="card-header" style="display: flex; justify-content: space-between;">
+                                <h3>Telemetry Pipeline Load Graph</h3>
+                                <span style="font-size:0.65rem; color:var(--text-muted); font-family:monospace;" id="opt-load-percentage">Capacity: 0.05%</span>
+                            </div>
+                            <div style="height: 120px; display: flex; align-items: flex-end; gap: 4px; padding-top: 1rem; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.15); border-radius: 4px; overflow: hidden; padding-left: 10px; padding-right: 10px;" id="opt-load-bar-chart">
+                                <!-- Bars added dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: SETTINGS
+                     ========================================== -->
+                <section class="tab-panel" id="panel-settings">
+                    <div class="topology-layout" style="height: calc(100vh - 350px);">
+                        <div class="card" style="flex: 1;">
+                            <div class="card-header">
+                                <h3>AIOps Model Connection</h3>
+                            </div>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Generative Model Source</label>
+                                    <select id="settings-source" class="form-control">
+                                        <option value="simulated">Simulated Client Mode (Sandbox)</option>
+                                        <option value="gemini" id="option-gemini-real">Real Gemini-1.5-Flash (Uses key)</option>
+                                    </select>
+                                </div>
+                                <div class="server-config-item">
+                                    <span>Slack App Link Status:</span>
+                                    <span class="badge" id="settings-slack-status">OFFLINE</span>
+                                </div>
+                                <div class="server-config-item">
+                                    <span>Gemini Core Engine Status:</span>
+                                    <span class="badge" id="settings-gemini-status">MISSING KEY</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="flex: 1;">
+                            <div class="card-header">
+                                <h3>Self-Healing System Trigger Settings</h3>
+                            </div>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Automation Execution Policy</label>
+                                    <div class="radio-group" style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.75rem;">
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;">
+                                            <input type="radio" name="auto-policy" value="approval" checked>
+                                            <span>Manual Approval Required (Safe Mode)</span>
+                                        </label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;">
+                                            <input type="radio" name="auto-policy" value="autonomous">
+                                            <span>Autonomous Self-Healing Trigger</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Alert Severity Threshold</label>
+                                    <div class="range-slider">
+                                        <input type="range" min="1" max="4" value="3" id="slider-threshold" class="slider">
+                                        <div class="slider-labels">
+                                            <span>Info</span>
+                                            <span>Warning</span>
+                                            <span class="active">Critical</span>
+                                            <span>Disaster</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" id="btn-save-settings">Save Server Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Fallback stub panels for other sidebar options -->
+                <section class="tab-panel" id="panel-investigation">
+                    <div class="card" style="height: calc(100vh - 350px);">
+                        <div class="card-header"><h3>AI Investigation Sweep Logs</h3></div>
+                        <div style="font-family:'Fira Code', monospace; font-size: 0.75rem; color:var(--text-muted); padding: 1rem; overflow-y:auto;">
+                            [SYSTEM INSTRUCTION]: To run a diagnostics investigation, navigate to the <span style="color:var(--primary);">Live Incidents</span> tab, choose an active alert from the queue, and click "Run Diagnostic Scripts". The dynamic logs and SSH execution timeline steps will populate here.
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-panel" id="panel-health">
+                    <div class="card" style="height: calc(100vh - 350px);">
+                        <div class="card-header"><h3>Detailed Network Segment Latency</h3></div>
+                        <div class="table-wrapper">
+                            <table class="node-table" id="ping-monitor-table">
+                                <thead>
+                                    <tr>
+                                        <th>Location Host</th>
+                                        <th>Interface IP</th>
+                                        <th>Average RTT</th>
+                                        <th>Min RTT</th>
+                                        <th>Max RTT</th>
+                                        <th>Packet Loss</th>
+                                        <th>Jitter</th>
+                                        <th>Current Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ping-monitor-tbody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-panel" id="panel-inventory">
+                    <div class="card" style="height: calc(100vh - 350px);">
+                        <div class="card-header"><h3>Device Inventory Table</h3></div>
+                        <div class="table-wrapper">
+                            <table class="node-table" id="node-table-body">
+                                <thead>
+                                    <tr>
+                                        <th>Node Name</th>
+                                        <th>Status</th>
+                                        <th>CPU</th>
+                                        <th>RAM</th>
+                                        <th>Telemetry Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-panel" id="panel-automation">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Device selection, Drift status, Backups history, Schedule -->
+                        <div class="card" style="flex: 1; max-width: 340px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Configuration Node</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.2rem 0.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Select Device Node</label>
+                                    <select id="cfg-device-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="router-hq">router-hq (Cisco)</option>
+                                        <option value="asa-edge-01">asa-edge-01 (Cisco ASA)</option>
+                                        <option value="sw-core-01">sw-core-01 (Cisco Switch)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Drift Auditor -->
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Drift Detection</h3>
+                            </div>
+                            <div style="padding: 0.2rem 0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+                                <div id="cfg-drift-status" class="server-config-item" style="border-color: rgba(34, 197, 94, 0.15); background: rgba(34, 197, 94, 0.02);">
+                                    <span style="font-size:0.75rem; font-weight:700; color:var(--healthy);"><i class="fa-solid fa-circle-check"></i> Healthy (No Drift)</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline" id="btn-cfg-audit-drift" style="width:100%;"><i class="fa-solid fa-shield-halved"></i> Audit Configuration Drift</button>
+                            </div>
+
+                            <!-- Backups History -->
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Backups History</h3>
+                            </div>
+                            <div id="cfg-backups-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.2rem 0.5rem;">
+                                <!-- Dynamically loaded backups -->
+                            </div>
+
+                            <!-- Schedule Setting -->
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Backup Schedule</h3>
+                            </div>
+                            <div style="padding: 0.2rem 0.5rem; display:flex; flex-direction:column; gap:0.4rem;">
+                                <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.72rem; color:var(--text-normal);">
+                                    <input type="checkbox" id="cfg-sched-enabled" checked>
+                                    <span>Enable Automated Backups</span>
+                                </div>
+                                <div class="form-group" style="margin-top:0.25rem;">
+                                    <select id="cfg-sched-interval" class="form-control" style="font-size:0.72rem; padding:0.2rem 0.4rem; height:auto;">
+                                        <option value="Hourly">Every Hour</option>
+                                        <option value="Daily at 02:00">Daily at 02:00 AM</option>
+                                        <option value="Weekly on Sundays">Weekly on Sundays</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-xs btn-outline" id="btn-cfg-save-schedule" style="margin-top:0.1rem;"><i class="fa-solid fa-save"></i> Save Schedule</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Diff, Code View, Approval Workflow Queue -->
+                        <div style="flex: 2.2; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
+                            <!-- Top: Action & Config viewer -->
+                            <div class="card" style="flex: 1.5; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <h3 id="cfg-viewer-title">Active Configuration Viewer</h3>
+                                    <div style="display:flex; gap:0.4rem;">
+                                        <input type="text" id="cfg-backup-desc-input" class="form-control" placeholder="Backup notes..." style="max-width:180px; font-size:0.7rem; height:24px; padding:0.1rem 0.35rem;">
+                                        <button class="btn btn-sm btn-primary" id="btn-cfg-create-backup" style="font-size:0.7rem; padding: 0.2rem 0.5rem;"><i class="fa-solid fa-cloud-upload"></i> Capture Baseline Backup</button>
+                                    </div>
+                                </div>
+                                <div id="cfg-code-container" style="flex: 1; padding: 1rem; background: #020409; overflow-y: auto;">
+                                    <pre id="cfg-code-view" style="margin:0; font-family:'Fira Code', monospace; font-size: 0.72rem; color: var(--terminal-text); white-space: pre-wrap; line-height: 1.45;">Select a backup version from the list history to view configuration statements.</pre>
+                                </div>
+                            </div>
+                            
+                            <!-- Bottom: Approval Workflow Queue -->
+                            <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 0; overflow: hidden; max-height:280px;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.5rem 1rem;">
+                                    <h3>Zero-Trust Configuration Approval Queue</h3>
+                                </div>
+                                <div id="cfg-approvals-queue" style="flex: 1; padding: 0.75rem; overflow-y: auto; display:flex; flex-direction:column; gap:0.5rem;">
+                                    <!-- Rendered dynamically -->
+                                    <p style="font-size:0.72rem; color:var(--text-muted); text-align:center;">No pending approval requests in queue.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: AUTOMATION PLAYBOOKS
+                     ========================================== -->
+                <section class="tab-panel" id="panel-playbooks">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Job selector & configurations -->
+                        <div class="card" style="flex: 1.1; max-width: 360px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Playbook Templates</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.2rem 0.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Select Template</label>
+                                    <select id="auto-playbook-select" class="form-control" style="font-size:0.75rem;">
+                                        <!-- Loaded dynamically -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Automation Framework</label>
+                                    <input type="text" id="auto-framework-view" class="form-control" style="font-size:0.75rem; background:rgba(0,0,0,0.25);" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Target Device Groups</label>
+                                    <div id="auto-targets-checkboxes" style="display:flex; flex-direction:column; gap:0.3rem; font-size:0.72rem; max-height:100px; overflow-y:auto; padding:0.2rem; background:rgba(0,0,0,0.2); border-radius:4px; border:1px solid var(--border-color);">
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="router-hq" checked> router-hq (Core Edge)</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="sw-core-01"> sw-core-01 (HQ Switch)</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="asa-edge-01"> asa-edge-01 (Firewall)</label>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="btn-auto-validate" style="width:100%;"><i class="fa-solid fa-clipboard-check"></i> Validate Safety & Syntax</button>
+                            </div>
+                            
+                            <!-- Run status & validation feedback -->
+                            <div class="card-header" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <h3>Validation & Status</h3>
+                            </div>
+                            <div style="padding: 0.2rem 0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+                                <div id="auto-validation-status" class="server-config-item" style="background:rgba(255,255,255,0.02);">
+                                    <span style="font-size:0.72rem; color:var(--text-muted);"><i class="fa-solid fa-clock"></i> Not Validated</span>
+                                </div>
+                                <div id="auto-approval-status" class="server-config-item" style="background:rgba(255,255,255,0.02);">
+                                    <span style="font-size:0.72rem; color:var(--text-muted);"><i class="fa-solid fa-lock"></i> Direct Exec Authorized</span>
+                                </div>
+                                <button class="btn btn-sm btn-success" id="btn-auto-execute" style="width:100%;" disabled><i class="fa-solid fa-play"></i> Execute Playbook</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Code viewer, progress meter, raw execution logs, job history -->
+                        <div style="flex: 2.2; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
+                            <!-- Top: Playbook Code & Progress Meter -->
+                            <div class="card" style="flex: 1.5; display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 280px;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem;">
+                                    <h3>Playbook Definition Code</h3>
+                                </div>
+                                <div style="flex: 1; display: flex; gap: 1rem; min-height: 0;">
+                                    <!-- Left: Code View -->
+                                    <div style="flex: 1.5; border-right: 1px solid var(--border-color); padding: 1rem; background:#010204; overflow-y:auto;">
+                                        <pre style="margin:0;"><code id="auto-code-view" class="language-yaml" style="font-family:'Fira Code', monospace; font-size:0.72rem; color:var(--terminal-text); white-space:pre;">Select template...</code></pre>
+                                    </div>
+                                    <!-- Right: Live Stepper Progress -->
+                                    <div style="flex: 1; padding: 1rem; display:flex; flex-direction:column; gap:0.75rem; overflow-y:auto;">
+                                        <h4 style="font-size:0.75rem; color:white; font-weight:700; margin-bottom:2px;">Run Stepper Progress</h4>
+                                        <div class="progress-track" style="height:8px; margin-bottom:4px;">
+                                            <div class="progress-fill" id="auto-progress-bar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                        </div>
+                                        <div id="auto-stepper" style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.68rem;">
+                                            <div class="server-config-item" id="step-auto-val" style="padding:4px 8px; color:var(--text-muted);"><i class="fa-solid fa-circle"></i> 1. Syntax Validation</div>
+                                            <div class="server-config-item" id="step-auto-conn" style="padding:4px 8px; color:var(--text-muted);"><i class="fa-solid fa-circle"></i> 2. Connect & Handshake</div>
+                                            <div class="server-config-item" id="step-auto-bck" style="padding:4px 8px; color:var(--text-muted);"><i class="fa-solid fa-circle"></i> 3. Rollback Backup</div>
+                                            <div class="server-config-item" id="step-auto-exec" style="padding:4px 8px; color:var(--text-muted);"><i class="fa-solid fa-circle"></i> 4. Task Execution</div>
+                                            <div class="server-config-item" id="step-auto-ver" style="padding:4px 8px; color:var(--text-muted);"><i class="fa-solid fa-circle"></i> 5. Verification Sweep</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Middle: Live Stdout Terminal console -->
+                            <div class="card" style="flex: 1.2; display: flex; flex-direction: column; background: #020409; border: 1px solid var(--border-color); padding:0; overflow:hidden; min-height: 200px;">
+                                <div class="card-header" style="background: rgba(255,255,255,0.01); border-bottom: 1px solid var(--border-color); padding: 0.5rem 1rem;">
+                                    <h3>Execution stdout Console Stream</h3>
+                                </div>
+                                <div id="auto-terminal-output" style="flex: 1; padding: 1rem; font-family:'Fira Code', monospace; font-size: 0.72rem; color: var(--terminal-text); overflow-y: auto; white-space: pre-wrap; line-height:1.45;">[RUNNER] Live stdout logging inactive. Validate and click Execute to run playbook template.</div>
+                            </div>
+                            
+                            <!-- Bottom: Run history list -->
+                            <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 0; overflow: hidden; max-height:260px;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.5rem 1rem;">
+                                    <h3>Playbook Execution History</h3>
+                                </div>
+                                <div class="table-wrapper" style="flex:1; overflow-y:auto;">
+                                    <table class="node-table" id="auto-history-table" style="font-size:0.7rem; margin:0;">
+                                        <thead>
+                                            <tr>
+                                                <th>Job ID</th>
+                                                <th>Playbook Name</th>
+                                                <th>Framework</th>
+                                                <th>Targets</th>
+                                                <th>Timestamp</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="auto-history-tbody">
+                                            <!-- Rendered dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-panel" id="panel-remediation">
+                    <div class="card" style="height: calc(100vh - 350px); overflow-y: auto;">
+                        <div class="card-header">
+                            <h3>Auto Remediation Panel</h3>
+                            <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">Status: Active Policies Ready</div>
+                        </div>
+                        <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem;">
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted); display: block; margin-bottom: 2px;">Risk Level</span>
+                                    <span class="status-badge critical" id="remed-risk-badge" style="font-size: 0.8rem;">DANGEROUS / DUAL APPROVAL</span>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted); display: block; margin-bottom: 2px;">Estimated Downtime</span>
+                                    <strong id="remed-downtime" style="color: white; font-size: 0.95rem;">30 Seconds (Failover)</strong>
+                                </div>
+                                <div class="rca-block">
+                                    <span style="color: var(--text-muted); display: block; margin-bottom: 2px;">Verification Result</span>
+                                    <span class="status-badge warning" id="remed-verification-result">Awaiting Execution</span>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <span style="color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Commands to Execute</span>
+                                    <pre id="remed-commands-box" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: var(--healthy); padding: 0.6rem; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 0.75rem; min-height: 120px; overflow-x: auto;">crypto isakmp policy 10\n lifetime 28800</pre>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Rollback Script</span>
+                                    <pre id="remed-rollback-box" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: var(--warning); padding: 0.6rem; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 0.75rem; min-height: 120px; overflow-x: auto;">no crypto isakmp policy 10</pre>
+                                </div>
+                            </div>
+
+                            <div class="rca-block">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="color: var(--text-muted); font-weight: 600;">Execution Progress</span>
+                                    <span id="remed-progress-text" style="font-weight: bold; color: var(--primary);">0%</span>
+                                </div>
+                                <div class="progress-track" style="height: 8px; border-radius: 4px;">
+                                    <div class="progress-fill" id="remed-progress-bar" style="width: 0%; height: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                <button class="btn btn-outline" id="btn-remed-reject" style="border-color: rgba(239, 68, 68, 0.4); color: var(--critical);">Reject & Abort</button>
+                                <button class="btn btn-primary" id="btn-remed-approve">Approve & Execute Patch</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: OPERATIONAL REPORTS
+                     ========================================== -->
+                <section class="tab-panel" id="panel-reports">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Report configurations -->
+                        <div class="card" style="flex: 1; max-width: 360px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Operational Report Center</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; padding: 0.2rem 0.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Select Report Type</label>
+                                    <select id="rpt-type-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="executive">Daily Executive Health Summary</option>
+                                        <option value="rca">Root Cause Analysis (RCA)</option>
+                                        <option value="mop">Method of Procedure (MOP)</option>
+                                        <option value="sop">Standard Operating Procedure (SOP)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px;">Include Data Elements</label>
+                                    <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.72rem; padding:0.4rem; background:rgba(0,0,0,0.2); border-radius:4px; border:1px solid var(--border-color);">
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-timeline" checked> Event Timeline</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-cmds" checked> Remediations Applied Commands</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-logs" checked> Execution CLI stdout Logs</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-metrics" checked> Core Health Metrics</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-rca" checked> AI Isolated Root Cause</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-topo" checked> Network Topology Graph Summary</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-recs" checked> Preventive Recommendations</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" id="rpt-inc-history" checked> Playbook Automation History</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Export Document Format</label>
+                                    <select id="rpt-format-select" class="form-control" style="font-size:0.75rem;">
+                                        <option value="pdf">PDF (Printable Vector Document)</option>
+                                        <option value="csv">CSV (Structured Tabular Spreadsheet)</option>
+                                        <option value="json">JSON (Serialized API Output)</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="btn-rpt-generate" style="width:100%; margin-top:0.25rem;"><i class="fa-solid fa-file-export"></i> Compile & Export Report</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Report preview block -->
+                        <div class="card" style="flex: 2; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+                            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem;">
+                                <h3>Enterprise Operations Summary Preview</h3>
+                            </div>
+                            <div style="flex: 1; padding: 1.5rem; background: #020408; overflow-y: auto;">
+                                <div id="rpt-preview-content" style="font-family:'Fira Code', monospace; font-size: 0.72rem; color: var(--terminal-text); white-space: pre-wrap; line-height: 1.5;">Select parameters and click Compile & Export Report.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     TAB PANEL: KNOWLEDGE BASE RAG
+                     ========================================== -->
+                <section class="tab-panel" id="panel-kb">
+                    <div class="control-room-layout" style="display: flex; gap: 1rem; height: calc(100vh - 200px);">
+                        <!-- Left Panel: Index Selector, Search Controls & Versioning Upload -->
+                        <div class="card" style="flex: 1.1; max-width: 380px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto;">
+                            <div class="card-header">
+                                <h3>Knowledge Index Search</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.6rem; padding: 0.2rem 0.5rem;">
+                                <!-- Document Index Checkboxes -->
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px;">Target Repositories</label>
+                                    <div style="display:flex; flex-direction:column; gap:0.35rem; font-size:0.7rem; padding:0.4rem; background:rgba(0,0,0,0.2); border-radius:4px; border:1px solid var(--border-color);">
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="Cisco Docs" checked class="kb-source-cb"> Cisco Technical Docs</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="Juniper Docs" checked class="kb-source-cb"> Juniper Junos Guides</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="RFCs" checked class="kb-source-cb"> IETF RFC Specification Library</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="Vendor TAC" checked class="kb-source-cb"> Vendor TAC Support Bulletins</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="Previous Incidents" checked class="kb-source-cb"> Previous Incident History Logs</label>
+                                        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;"><input type="checkbox" value="Configuration Library" checked class="kb-source-cb"> Standard Golden Config Templates</label>
+                                    </div>
+                                </div>
+                                <!-- Search Mode & Input -->
+                                <div class="form-group">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600; display:block; margin-bottom:2px;">Search Mode</label>
+                                    <select id="kb-search-mode" class="form-control" style="font-size:0.75rem;">
+                                        <option value="semantic">Semantic AI Search (RAG)</option>
+                                        <option value="keyword">Keyword Exact Matching</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="position:relative;">
+                                    <input type="text" id="kb-query-input" class="form-control" placeholder="Ask questions (e.g. BGP holdtime flap)..." style="font-size:0.75rem; padding-right:2rem;">
+                                    <button id="btn-kb-search" class="btn btn-xs btn-primary" style="position:absolute; right:4px; top:4px; height:24px; padding:0 8px;"><i class="fa-solid fa-magnifying-glass"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Document Upload & Versioning -->
+                            <div class="card-header" style="border-top:1px solid var(--border-color); padding-top:0.75rem;">
+                                <h3>Index New Knowledge Item</h3>
+                            </div>
+                            <form id="kb-upload-form" style="padding: 0.2rem 0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+                                <div class="form-group">
+                                    <input type="text" id="kb-upload-title" class="form-control" placeholder="Document Title" style="font-size:0.75rem;" required>
+                                </div>
+                                <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:0.4rem;">
+                                    <select id="kb-upload-source" class="form-control" style="font-size:0.72rem;" required>
+                                        <option value="Cisco Docs">Cisco Docs</option>
+                                        <option value="Juniper Docs">Juniper Docs</option>
+                                        <option value="RFCs">RFCs</option>
+                                        <option value="Vendor TAC">Vendor TAC</option>
+                                        <option value="Previous Incidents">Previous Incidents</option>
+                                        <option value="Configuration Library">Configuration Library</option>
+                                    </select>
+                                    <input type="text" id="kb-upload-citation" class="form-control" placeholder="Citation Key (e.g. Cisco-OSPF)" style="font-size:0.72rem;" required>
+                                </div>
+                                <div class="form-group">
+                                    <textarea id="kb-upload-content" class="form-control" placeholder="Enter document content text..." style="font-size:0.72rem; min-height:60px; font-family:sans-serif;" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-xs btn-primary" style="width:100%;"><i class="fa-solid fa-cloud-arrow-up"></i> Upload & Catalog Document</button>
+                            </form>
+                        </div>
+
+                        <!-- Right Panel: Copilot Answer & Citations Source List -->
+                        <div style="flex: 2.2; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
+                            <!-- Top: AI RAG Answer block -->
+                            <div class="card" style="flex: 1.2; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <h3>NOC AI Copilot Knowledge Synthesis</h3>
+                                    <span style="font-size:0.65rem; color:var(--text-muted); font-family:monospace;" id="kb-rag-time">Last update: Inactive</span>
+                                </div>
+                                <div style="flex:1; padding:1.2rem; background:rgba(0,0,0,0.25); display:flex; flex-direction:column; gap:0.5rem; overflow-y:auto;">
+                                    <div id="kb-rag-answer" style="font-size:0.75rem; color:var(--text-normal); line-height:1.5;">Ask a question or enter keywords in the search panel to synthesize standard operating procedure guidelines.</div>
+                                    <div id="kb-rag-citations-holder" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.4rem;">
+                                        <!-- Citations tokens rendered here -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Bottom: Source Citations Search Results list -->
+                            <div class="card" style="flex: 1.8; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+                                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 0.6rem 1rem;">
+                                    <h3>Matching Knowledge Sources & Citations</h3>
+                                </div>
+                                <div id="kb-results-list" style="flex: 1; padding: 0.75rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem;">
+                                    <!-- Rendered dynamically -->
+                                    <p style="font-size:0.72rem; color:var(--text-muted); text-align:center; padding:2rem;">No matching documents cataloged.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- BOTTOM PANEL: AI TERMINAL -->
+            <div class="bottom-console">
+                <div class="console-tabs">
+                    <button class="console-tab-btn active" data-console="chat">AI Chat</button>
+                    <button class="console-tab-btn" data-console="cli">CLI</button>
+                    <button class="console-tab-btn" data-console="logs">Logs</button>
+                    <button class="console-tab-btn" data-console="pcap">Packet Capture</button>
+                    <button class="console-tab-btn" data-console="ansible">Ansible Output</button>
+                    <button class="console-tab-btn" data-console="terraform">Terraform</button>
+                    <button class="console-tab-btn" id="btn-clear-chat" style="margin-left: auto; color: var(--critical);" title="Clear chat history and memory"><i class="fa-solid fa-trash-can"></i> Clear Chat</button>
+                </div>
+                
+                <!-- Terminal Body (Scrollable) -->
+                <div class="console-body" id="console-body-output">
+                    <!-- Default Initial AI Chat message -->
+                    <div id="console-chat-wrapper">
+                        <p style="color: var(--text-muted);"><i class="fa-solid fa-robot" style="color:var(--primary)"></i> <strong>NOC AI Copilot</strong>: Hello! I am your AIOps virtual companion. I can parse routing tables, audit security alerts, and run ansible patches. Ask me a question or type a direct switch command in the input bar below.</p>
+                    </div>
+                    
+                    <div id="console-cli-wrapper" style="display:none; color: #10B981;">
+                        <p># Zero-Trust SSH terminal console active. Managed router cluster connection verified.</p>
+                        <p># Type commands like 'show ip route', 'show logging', 'show interface', 'ping', 'traceroute' to query nodes.</p>
+                    </div>
+                    
+                    <div id="console-logs-wrapper" style="display:none; color: var(--text-muted);">
+                        <p>[2026-07-02T19:30:51] INFO: Telemetry monitor thread started successfully.</p>
+                        <p>[2026-07-02T19:32:04] ALERT: %LINK-3-UPDOWN: GigabitEthernet2 state changed to down.</p>
+                        <p>[2026-07-02T19:35:10] WARNING: SSH Password spray attempt detected from host 198.51.100.45.</p>
+                    </div>
+                    
+                    <div id="console-pcap-wrapper" style="display:none; color: var(--text-muted); font-size:0.7rem;">
+                        <p>19:30:51.104231 IP 198.51.100.2.isakmp > 203.0.113.10.isakmp: isakmp: phase 1 Main Mode</p>
+                        <p>19:30:52.420139 IP 203.0.113.10.isakmp > 198.51.100.2.isakmp: isakmp: phase 1 Main Mode (Lifetime Error)</p>
+                    </div>
+                    
+                    <div id="console-ansible-wrapper" style="display:none; color: #10B981;">
+                        <p>PLAY [Auto-healer configuration patch deployment] **************************************</p>
+                        <p>TASK [Gathering Facts] *****************************************************************</p>
+                        <p>ok: [router-hq]</p>
+                    </div>
+                    
+                    <div id="console-terraform-wrapper" style="display:none; color: var(--text-muted);">
+                        <p>terraform init - Initializing cloud state...</p>
+                        <p>terraform plan - 0 to add, 0 to change, 0 to destroy.</p>
+                    </div>
+                </div>
+
+                <!-- Attachments Toolbar -->
+                <div class="chat-attachment-bar" id="chat-attachment-bar" style="display:none; padding: 0.35rem 0.75rem; border-top: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.4); align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <span style="font-size:0.65rem; color:var(--text-muted); font-weight:600; font-family:inherit;">Attached Context:</span>
+                    <div id="attached-badges-container" style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;"></div>
+                </div>
+
+                <!-- Input Console prompt -->
+                <div class="console-input-row" style="position: relative;">
+                    <!-- Attachment button (Paperclip) -->
+                    <button id="btn-toggle-attachments" class="btn btn-sm btn-outline" style="padding:0.25rem 0.4rem; border:none; background:transparent; display:flex; align-items:center;" title="Attach logs, configuration or topology files">
+                        <i class="fa-solid fa-paperclip" style="font-size:0.9rem; color:var(--text-muted);"></i>
+                    </button>
+                    
+                    <!-- Hidden inputs for FileReader -->
+                    <input type="file" id="attach-log-input" accept=".log,.txt" style="display:none;">
+                    <input type="file" id="attach-config-input" accept=".txt,.cfg,.conf" style="display:none;">
+                    <input type="file" id="attach-topology-input" accept=".json" style="display:none;">
+                    
+                    <!-- Dropdown for attachment types -->
+                    <div class="attachment-dropdown" id="attachment-dropdown" style="display:none; position:absolute; bottom:45px; left:10px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index:100; flex-direction:column; padding:0.25rem;">
+                        <button class="dropdown-item" id="btn-attach-log" style="background:transparent; border:none; color:white; padding:0.4rem 0.75rem; text-align:left; font-size:0.7rem; cursor:pointer; width:120px; display:flex; align-items:center; gap:0.4rem;"><i class="fa-solid fa-file-lines" style="color:var(--primary);"></i> Syslogs</button>
+                        <button class="dropdown-item" id="btn-attach-config" style="background:transparent; border:none; color:white; padding:0.4rem 0.75rem; text-align:left; font-size:0.7rem; cursor:pointer; width:120px; display:flex; align-items:center; gap:0.4rem;"><i class="fa-solid fa-file-code" style="color:var(--warning);"></i> Device Config</button>
+                        <button class="dropdown-item" id="btn-attach-topology" style="background:transparent; border:none; color:white; padding:0.4rem 0.75rem; text-align:left; font-size:0.7rem; cursor:pointer; width:120px; display:flex; align-items:center; gap:0.4rem;"><i class="fa-solid fa-circle-nodes" style="color:var(--healthy);"></i> Topology</button>
+                    </div>
+
+                    <span class="console-prompt" id="console-prompt-lbl">AI Copilot></span>
+                    <input type="text" id="console-input-field" placeholder="Ask AI Copilot to analyze telemetry or run playbook...">
+                    
+                    <!-- Control buttons -->
+                    <button id="btn-stop-generation" class="btn btn-sm btn-danger" style="display:none; padding: 0.25rem 0.5rem; margin-left: 0.5rem; font-weight:600; font-size:0.7rem;" title="Stop generation">
+                        <i class="fa-solid fa-stop"></i> Stop
+                    </button>
+                    <button id="btn-regenerate-chat" class="btn btn-sm btn-outline" style="display:none; padding: 0.25rem 0.5rem; margin-left: 0.5rem; font-weight:600; font-size:0.7rem;" title="Regenerate last response">
+                        <i class="fa-solid fa-arrows-rotate"></i> Retry
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT UTILITY PANEL -->
+        <aside class="right-panel">
+            <div class="panel-header">
+                <h3>AI Assistant Status</h3>
+                <span class="status-badge info" style="font-size: 0.6rem; padding: 0.1rem 0.3rem;"><i class="fa-solid fa-brain"></i> Active</span>
+            </div>
+            
+            <div class="right-panel-section">
+                <h4><i class="fa-solid fa-spinner fa-spin"></i> Current Thinking</h4>
+                <div class="thinking-text" id="rp-thinking">
+                    Idle. Waiting for an incident selection or diagnostic sweep command to analyze.
+                </div>
+            </div>
+            
+            <div class="right-panel-section">
+                <h4><i class="fa-solid fa-folder-open"></i> Evidence Collection</h4>
+                <ul class="evidence-list" id="rp-evidence">
+                    <li>No active evidence collected. Run diagnostics.</li>
+                </ul>
+            </div>
+            
+            <div class="right-panel-section">
+                <h4><i class="fa-solid fa-list-ol"></i> Reasoning &amp; Steps</h4>
+                <div class="thinking-text" id="rp-reasoning" style="font-size: 0.75rem; color: var(--text-muted);">
+                    Waiting for investigation sequence.
+                </div>
+            </div>
+            
+            <div class="right-panel-section">
+                <h4><i class="fa-solid fa-circle-nodes"></i> Target Parameters</h4>
+                <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                    <div class="status-value-pair">
+                        <span>Current Device</span>
+                        <strong id="rp-target-device">N/A</strong>
+                    </div>
+                    <div class="status-value-pair">
+                        <span>Current Tool</span>
+                        <strong id="rp-target-tool">N/A</strong>
+                    </div>
+                    <div class="status-value-pair">
+                        <span>Current Command</span>
+                        <strong id="rp-target-command" style="font-family:'Fira Code', monospace; font-size:0.7rem;">N/A</strong>
+                    </div>
+                    <div class="status-value-pair">
+                        <span>AI Confidence</span>
+                        <strong id="rp-target-confidence">0%</strong>
+                    </div>
+                    <div class="status-value-pair">
+                        <span>Next Action</span>
+                        <strong id="rp-target-next" style="color:var(--primary);">Awaiting telemetry</strong>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- ==========================================
+         MODAL: AUTO REMEDIATION OVERLAY
+         ========================================== -->
+    <div class="modal-overlay" id="modal-remediation">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Auto Remediation Stepper Action</h3>
+                <button class="btn btn-sm btn-outline" id="btn-close-remediation-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="font-size: 0.8rem; display:flex; flex-direction:column; gap:0.75rem;">
+                <div class="server-config-item">
+                    <span>Risk Level Severity:</span>
+                    <span class="status-badge critical" id="md-remediation-risk">Critical</span>
+                </div>
+                <div class="server-config-item">
+                    <span>Estimated Downtime:</span>
+                    <strong id="md-remediation-downtime">N/A</strong>
+                </div>
+                <div>
+                    <label style="font-weight:700; color:white; display:block; margin-bottom:0.25rem;">Remediation CLI Command Sequence</label>
+                    <pre style="background:black; color:var(--healthy); padding:0.5rem; border-radius:6px; font-family:'Fira Code', monospace;" id="md-remediation-commands">N/A</pre>
+                </div>
+                <div>
+                    <label style="font-weight:700; color:white; display:block; margin-bottom:0.25rem;">Rollback Playbook Script</label>
+                    <pre style="background:black; color:var(--warning); padding:0.5rem; border-radius:6px; font-family:'Fira Code', monospace;" id="md-remediation-rollback">N/A</pre>
+                </div>
+                <div class="server-config-item">
+                    <span>Execution State:</span>
+                    <strong id="md-remediation-state">Pending Approval</strong>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.5rem;">
+                    <button class="btn btn-danger" id="btn-remediation-reject">Reject</button>
+                    <button class="btn btn-success" id="btn-remediation-approve">Approve & Execute</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL: INCIDENT DETAILS AUDIT
+         ========================================== -->
+    <div class="modal-overlay" id="modal-incident-details">
+        <div class="modal-card" style="width: 750px;">
+            <div class="modal-header">
+                <h3>Incident Details Dossier</h3>
+                <button class="btn btn-sm btn-outline" id="btn-close-details-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="font-size:0.75rem; display:flex; flex-direction:column; gap:0.75rem; color:var(--text-muted);" id="details-modal-body">
+                <!-- Rendered dynamically -->
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem; border-top:1px solid var(--border-color); padding-top:0.75rem;">
+                <button class="btn btn-sm btn-outline" id="btn-details-service-now"><i class="fa-solid fa-ticket"></i> Create ServiceNow Ticket</button>
+                <button class="btn btn-sm btn-outline" id="btn-details-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+                <button class="btn btn-sm btn-outline" id="btn-details-export-docx"><i class="fa-solid fa-file-word"></i> Export DOCX</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noc-web-app
+  namespace: default
+  labels:
+    app: noc-web
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: noc-web
+  template:
+    metadata:
+      labels:
+        app: noc-web
+    spec:
+      containers:
+      - name: web-server
+        image: ghcr.io/noc-ai/dashboard:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5001
+          name: https-port
+        env:
+        - name: DATABASE_URL
+          value: "sqlite:////app/data/network_noc.db"
+        - name: REDIS_URL
+          value: "redis://noc-redis-headless:6379/0"
+        - name: RABBITMQ_URL
+          value: "amqp://guest:guest@noc-rabbitmq-headless:5672//"
+        - name: BIND_HOST
+          value: "0.0.0.0"
+        - name: PORT
+          value: "5001"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+        # Health Checks Probes
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5001
+            scheme: HTTPS
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5001
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: sqlite-storage
+          mountPath: /app/data
+      volumes:
+      - name: sqlite-storage
+        persistentVolumeClaim:
+          claimName: sqlite-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-web-service
+  namespace: default
+  labels:
+    app: noc-web
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5001
+    targetPort: 5001
+    protocol: TCP
+    name: https
+  selector:
+    app: noc-web

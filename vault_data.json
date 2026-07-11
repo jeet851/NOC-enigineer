@@ -1,0 +1,14 @@
+{
+    "Cisco-Core-Switch-SSH": {
+        "type": "SSH Key",
+        "value": "gAAAAABqPm3Ysg_YVXh4d61_llhFAKFjn_p6-z27MT0kuFWQJRpimjp-VcjKPIXxPlwncPfNYT5foffpyMHMnnBpzCuWXoGcGo0dllTz_CPeSgrkVDnn614="
+    },
+    "Palo-Alto-Firewall-API": {
+        "type": "API Key",
+        "value": "gAAAAABqPm3Ybf36uF_CZdOrodAflqvgxd8hthZrfpSPdt1OtJUazNBrBNbOQhj8zoim37ayt6CconQ1fGfijCVBPN2Icek8nYtPsfwJQdrK35lFO2-R374="
+    },
+    "SNMPv3-Community-String": {
+        "type": "SNMP Auth",
+        "value": "gAAAAABqPm3YFYHzPSYWKQ2ap0z8hfQZ0C8VbvSobYnlBvnD9HCs9tEFhCweYaolco3FOw8r2Qf8bxSZDRK_dmWElp-S2sS9KVDz-JMNRaz_fiYgsngrq5E="
+    }
+}

@@ -1,0 +1,25 @@
+# Environments and Secrets
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Databases and logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Editors
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,252 @@
+[
+  {
+    "instruction": "You are Network Engineer, a routing and switching specialist. Diagnose why BGP peering with neighbor 192.0.2.2 is stuck in Active state and provide the fix.",
+    "input": "Incident: BGP neighbor is down. Ping is successful, but Telnet on port 179 returns 'Connection refused'.",
+    "output": "Diagnostics:\n- The neighbor state 'Active' indicates the router is actively trying to establish a TCP connection on port 179 but the remote side is rejecting or blocking it.\n- ICMP ping succeeds, verifying Layer 3 connectivity is intact.\n- TCP connection test to port 179 fails with 'Connection refused', confirming port 179 is blocked.\n\nResolution:\nPermit BGP (TCP Port 179) in the input/output access lists on the local router interface and intervening firewalls.\n\nCisco Configuration Patch:\n```text\nHQ-Core-Router-01(config)# ip access-list extended PERMIT-BGP\nHQ-Core-Router-01(config-ext-nacl)# permit tcp host 192.0.2.1 host 192.0.2.2 eq bgp\nHQ-Core-Router-01(config-ext-nacl)# permit tcp host 192.0.2.1 eq bgp host 192.0.2.2\nHQ-Core-Router-01(config-ext-nacl)# exit\nHQ-Core-Router-01(config)# interface GigabitEthernet0/1\nHQ-Core-Router-01(config-if)# ip access-group PERMIT-BGP in\nHQ-Core-Router-01(config-if)# end\nHQ-Core-Router-01# write memory\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Help diagnose why file transfers stall over a GRE over IPsec tunnel, and write the Cisco configurations to resolve it.",
+    "input": "Telemetry reveals that pinging with size 1500 and DF-bit set fails, while size 1400 succeeds. The tunnel interface MTU is 1500.",
+    "output": "Diagnostics:\n- The failure of 1500-byte pings with the Don't Fragment (DF) bit set, combined with the success of 1400-byte pings, indicates a Path MTU Discovery (PMTUD) failure over the VPN tunnel.\n- Bounded by the 1500-byte physical MTU, the addition of GRE (24 bytes) and IPsec (typically ~56-72 bytes depending on algorithms) headers forces packets to exceed the maximum size, leading to packet drops.\n\nResolution:\nModify the Tunnel0 interface configurations to lower the MTU and adjust the TCP maximum segment size (MSS) to prevent fragmentation.\n\nCisco Configuration:\n```text\nBranch-Router-01(config)# interface Tunnel0\nBranch-Router-01(config-if)# ip mtu 1400\nBranch-Router-01(config-if)# ip tcp adjust-mss 1360\nBranch-Router-01(config-if)# end\n```"
+  },
+  {
+    "instruction": "You are Windows Administrator. Diagnose an Active Directory replication error 1722 between DC-01 and DC-02 and provide the PowerShell fix.",
+    "input": "repadmin /showrepl reports 'The RPC server is unavailable' and Test-NetConnection to DC-02 on port 135 fails.",
+    "output": "Diagnostics:\n- The 'RPC server is unavailable' (Error 1722) error in Active Directory indicates DC-01 cannot connect to the RPC Endpoint Mapper or AD RPC ports on DC-02.\n- Since the TCP test to port 135 fails, the port is either blocked by a firewall or the RPC service on DC-02 is stopped.\n\nResolution:\nEnable the firewall rules for RPC Endpoint Mapper and Active Directory Replication on both domain controllers.\n\nPowerShell Firewall Fix:\n```powershell\nEnable-NetFirewallRule -DisplayName \"Active Directory Domain Services (RPC)\"\nEnable-NetFirewallRule -DisplayName \"RPC Endpoint Mapper\"\n```"
+  },
+  {
+    "instruction": "You are Windows Administrator. Diagnose an IIS website returning 503 Service Unavailable with a stopped AppPool and provide a recovery PowerShell script.",
+    "input": "Get-IISAppPool shows state as Stopped. The Event Log shows w3wp.exe crashed with exception 0xe0434352.",
+    "output": "Diagnostics:\n- State 'Stopped' for 'AppPool-Prod' explains the 503 Service Unavailable response.\n- The crash exception `0xe0434352` is a standard Microsoft .NET CLR exception, indicating an unhandled exception inside the web application caused the worker process (w3wp.exe) to crash.\n- IIS automatically disables an application pool (Rapid Fail Protection) if it crashes repeatedly within a short window.\n\nResolution:\nRestart the application pool to restore service, but inspect application code configurations to fix the root crash cause.\n\nPowerShell commands:\n```powershell\nImport-Module WebAdministration\nStart-WebAppPool -Name \"AppPool-Prod\"\n```"
+  },
+  {
+    "instruction": "You are Linux Administrator. Troubleshoot why Kubernetes pods cannot resolve external domains and show how to fix the CoreDNS ConfigMap.",
+    "input": "CoreDNS logs show 'Loop-detection: Loop detected in query' and nslookup inside pods times out.",
+    "output": "Diagnostics:\n- The 'Loop detected' warning indicates a routing loop. CoreDNS is trying to forward unresolved names to the node's local DNS service, which is configured to forward them back to CoreDNS.\n- This breaks resolution for all domains outside the internal cluster domain (`cluster.local`).\n\nResolution:\nEdit the CoreDNS ConfigMap `coredns` in the `kube-system` namespace. Change the `forward` block to target external public resolvers (e.g. `8.8.8.8` and `1.1.1.1`) directly, then restart the coredns pods.\n\nCoreDNS ConfigMap snippet:\n```yaml\nforward . 8.8.8.8 1.1.1.1\n```\nRestart commands:\n```bash\nkubectl rollout restart deployment coredns -n kube-system\n```"
+  },
+  {
+    "instruction": "You are Linux Administrator. Troubleshoot disk space exhaustion in the docker overlay2 directory on a Linux server and provide commands to clean it up.",
+    "input": "Disk space is at 98%. Docker storage directory overlay2 is using 72GB. Docker system df shows 31.2GB of reclaimable images.",
+    "output": "Diagnostics:\n- The `/var/lib/docker/overlay2` directory houses container writable layers and image layers.\n- A high amount of reclaimable storage (31.2GB) indicates that inactive containers and outdated image builds are consuming excessive disk space.\n\nResolution:\nExecute Docker prune commands to clean up dangling and unused objects. Run a script to truncate active log files if they are bloated.\n\nBash Commands:\n```bash\n# Remove all unused containers, networks, images, and volumes\ndocker system prune -a --volumes -f\n\n# Locate and truncate docker log files of running containers\nfind /var/lib/docker/containers/ -name \"*-json.log\" -exec truncate -s 0 {} \\;\n```"
+  },
+  {
+    "instruction": "You are NOC Engineer. Diagnose a high CPU alert on a core network switch using Cisco outputs and provide the mitigation commands.",
+    "input": "Switch CPU is at 99%. 'K5 IP Input' is using 88.10%. Spanning Tree reports 14,502 topology changes. Port Gi1/0/12 has high OutDiscards and frequent transitions.",
+    "output": "Diagnostics:\n- High CPU in 'K5 IP Input' indicates the switch is processing excessive Layer 2 broadcast or multicast traffic.\n- A high rate of Spanning Tree topology changes (over 14,000 in 30 minutes) confirms a Layer 2 topology loop is occurring.\n- The active transitions on Gi1/0/12 identify it as either the source of the loop or a port connected to a looping segment.\n\nResolution:\nDisable the offending interface (Gi1/0/12) to break the loop, and enforce BPDU Guard security parameters on it.\n\nCisco commands:\n```text\nsw-core-01(config)# interface GigabitEthernet1/0/12\nsw-core-01(config-if)# shutdown\nsw-core-01(config-if)# spanning-tree bpduguard enable\n```"
+  },
+  {
+    "instruction": "You are NOC Engineer. Analyze a database query performance report showing SLA breach and suggest the SQL index optimization.",
+    "input": "EXPLAIN ANALYZE shows Seq Scan on a table with 9.8 million rows, causing a query execution time of 1121ms.",
+    "output": "Diagnostics:\n- The execution plan shows a Sequential Scan (`Seq Scan on orders`) is being run.\n- 9.8 million rows were evaluated and discarded by the filter `user_id = 99201`.\n- This indicates a missing index on the `user_id` column.\n\nResolution:\nCreate a composite index on the query's filter and sorting columns (`user_id` and `created_at`) concurrently to restore SLA latency performance.\n\nSQL Fix:\n```sql\nCREATE INDEX CONCURRENTLY idx_orders_user_id_created_at ON orders (user_id, created_at DESC);\n```"
+  },
+  {
+    "instruction": "You are Security Analyst. Audit system authorization logs for SSH brute force attacks, identify the attacker, and generate commands to block the IP and secure the host.",
+    "input": "System auth.log contains 4,502 instances of 'Failed password' for 'admin', 'root' from IP 198.51.100.77.",
+    "output": "Diagnostics:\n- The log audit confirms an ongoing SSH brute-force attack originating from external IP `198.51.100.77` using automated dictionary lists.\n- Leaving this unblocked presents a high risk of unauthorized server compromise if any weak password exists.\n\nResolution:\n1. Apply local firewall rules to block `198.51.100.77` immediately.\n2. Harden SSH configuration by disabling password authentication, forcing key-only logins.\n\nCommands:\n```bash\nsudo firewall-cmd --permanent --add-rich-rule=\"rule family='ipv4' source address='198.51.100.77' reject\"\nsudo firewall-cmd --reload\nsudo systemctl restart sshd\n```"
+  },
+  {
+    "instruction": "You are Security Analyst. Audit Nginx access logs for SQL injection payloads, identify vulnerability issues (response codes), and provide Nginx block configurations.",
+    "input": "Logs show GET /api/v1/products?id=1%20UNION%20SELECT%20username,password%20FROM%20users returning 200 OK from IP 192.0.2.145.",
+    "output": "Diagnostics:\n- The presence of query strings containing SQL keywords (`UNION SELECT...`) is a clear SQL Injection (SQLi) signature.\n- The fact that the server returned an HTTP `200` status code with response payload length `4522` indicates the application processed the query successfully. This represents a confirmed security breach.\n\nResolution:\n1. Add a blocking rule for the attacker IP `192.0.2.145` in Nginx.\n2. Coordinate with developers to refactor the database code to use parameterized SQL input binding.\n\nNginx Block Config:\n```nginx\n# /etc/nginx/conf.d/blockips.conf\ndeny 192.0.2.145;\n```\nReload command:\n```bash\nsudo systemctl reload nginx\n```"
+  },
+  {
+    "instruction": "You are Cloud Engineer. Troubleshoot an AWS S3 AccessDenied error for an EC2 backup application and generate the correct IAM policy.",
+    "input": "STS caller role is AppBackupRole. The attached policy permits s3:PutObject, s3:GetObject only on resource 'arn:aws:s3:::prod-app-backups-2026'. The script fails with AccessDenied calling ListObjectsV2.",
+    "output": "Diagnostics:\n- The backup script uses `s3:ListObjectsV2` which maps to the IAM action `s3:ListBucket` (run at the bucket level).\n- The current policy fails because:\n  1. It lacks the `s3:ListBucket` action.\n  2. It targets the resource `arn:aws:s3:::prod-app-backups-2026` for `PutObject`/`GetObject`. These object operations require the resource path to target objects inside the bucket (`arn:aws:s3:::prod-app-backups-2026/*`).\n\nResolution:\nApply a revised IAM policy that explicitly grants `s3:ListBucket` on the bucket resource and object actions on the bucket contents.\n\nIAM Policy JSON:\n```json\n{\n    \"Version\": \"2012-10-17\",\n    \"Statement\": [\n        {\n            \"Effect\": \"Allow\",\n            \"Action\": [\n                \"s3:ListBucket\"\n            ],\n            \"Resource\": \"arn:aws:s3:::prod-app-backups-2026\"\n        },\n        {\n            \"Effect\": \"Allow\",\n            \"Action\": [\n                \"s3:PutObject\",\n                \"s3:GetObject\"\n            ],\n            \"Resource\": \"arn:aws:s3:::prod-app-backups-2026/*\"\n        }\n    ]\n}\n```"
+  },
+  {
+    "instruction": "You are Cloud Engineer. Resolve a GCP VPC network peering subnet conflict by identifying the overlapping CIDRs and creating a command list to re-provision the subnet.",
+    "input": "vpc-a has subnet-a-web with IP range 10.10.1.0/24. vpc-b has subnet-b-app with IP range 10.10.1.0/24. Peering is failing.",
+    "output": "Diagnostics:\n- The subnet range `10.10.1.0/24` is active in both `vpc-a` and `vpc-b`.\n- VPC peering creates direct routing paths between VPC networks. Peering fails because routers cannot resolve destinations if the same CIDR is bound to different local interface domains.\n\nResolution:\n1. Terminate compute targets inside the conflicting subnet in `vpc-b`.\n2. Delete the overlapping subnet `subnet-b-app`.\n3. Recreate the subnet using a safe range: `10.20.1.0/24`.\n\nGCP gcloud commands:\n```bash\ngcloud compute networks subnets delete subnet-b-app --region=us-central1\ngcloud compute networks subnets create subnet-b-app-new --network=vpc-b --range=10.20.1.0/24 --region=us-central1\n```"
+  },
+  {
+    "instruction": "You are Documentation Specialist. Synthesize raw kernel OOM logs into a structured Root Cause Analysis (RCA) document.",
+    "input": "Logs show 'Out of memory: Kill process 12094 (postgres)' at Jun 25 14:02:10 and systemd restart of postgresql at Jun 25 14:05:00.",
+    "output": "RCA Document:\n# Root Cause Analysis (RCA-2026-009)\n\n## Executive Summary\nOn June 25th, 2026, the primary database service (PostgreSQL) crashed due to an Out of Memory (OOM) event. Service was restored at 14:05:00 UTC via systemd auto-restart. Total outage duration: 2 minutes, 50 seconds.\n\n## Timeline\n- 14:02:10 UTC: Host kernel runs out of memory, terminating process 12094 (postgres).\n- 14:02:11 UTC: Web apps experience connection failures.\n- 14:05:00 UTC: Systemd service restarts PostgreSQL.\n\n## Root Cause\nThe host OS memory limit was breached, triggering the kernel OOM killer to terminate the PostgreSQL daemon.\n\n## Prevention\nImplement database read replicas for reports and configure vm.overcommit settings."
+  },
+  {
+    "instruction": "You are Documentation Specialist. Write a Standard Operating Procedure (SOP) for executing a database rollback from a hot backup.",
+    "input": "Write a recovery SOP for PostgreSQL 14 using base backups and stopping the services first.",
+    "output": "SOP Draft:\n# SOP-DB-012: PostgreSQL Database Hot-Backup Rollback\n\n## Procedure:\n1. Stop HTTP connections to block database write access: `systemctl stop nginx`\n2. Stop PostgreSQL: `systemctl stop postgresql`\n3. Quarantine the corrupted data folder: `mv /var/lib/postgresql/14/main /var/lib/postgresql/14/main_corrupted`\n4. Recreate main data folder with correct permissions: `mkdir /var/lib/postgresql/14/main`\n5. Extract the base backup archive: `tar -xvf /mnt/backups/base.tar -C /var/lib/postgresql/14/main/`\n6. Start the database service: `systemctl start postgresql`"
+  },
+  {
+    "instruction": "You are Automation Engineer. Troubleshoot an Ansible ping module failure showing '/usr/bin/python: not found' and generate the correct inventory file fix.",
+    "input": "Ansible ping returns FAILED! due to /usr/bin/python not found. Remote ssh indicates python3 is installed at /usr/bin/python3.",
+    "output": "Diagnostics:\n- Ansible attempts to run its payload using Python. By default, it expects `/usr/bin/python` to exist on the remote host.\n- On newer server distributions, only Python 3 is installed (`/usr/bin/python3`), and there is no symlink for `/usr/bin/python`.\n\nResolution:\nConfigure the `ansible_python_interpreter` parameter to point to the correct path `/usr/bin/python3` in the inventory configurations.\n\nInventory Fix:\n```ini\n[all:vars]\nansible_python_interpreter=/usr/bin/python3\n```"
+  },
+  {
+    "instruction": "You are Automation Engineer. Troubleshoot a script failure caused by a sudo password prompt and generate the sudoers configuration to permit passwordless execution.",
+    "input": "Self-healing script times out on '[sudo] password for ops-bot'. The script needs to run 'systemctl restart nginx' non-interactively.",
+    "output": "Diagnostics:\n- Sudo commands run inside scripts will freeze or timeout if they prompt for user verification passwords.\n- The execution requires the `ops-bot` user to have passwordless privileges (`NOPASSWD`) for the required commands in the `/etc/sudoers` configuration.\n\nResolution:\nCreate a specific sudoers file in `/etc/sudoers.d/` giving target permissions to the `ops-bot` account.\n\nSudoers Configuration File (`/etc/sudoers.d/ops-bot`):\n```text\nops-bot ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose why OSPF neighbor 10.0.1.2 is stuck in EXSTART and provide the Cisco config fix.",
+    "input": "OSPF neighbor state is stuck in EXSTART. Local interface MTU is 1500, but peer interface MTU is configured to 9000.",
+    "output": "Diagnostics:\n- The EXSTART state is where OSPF peers negotiate master/slave relationship using DBD packets. A stuck state indicates the slave/master cannot receive the peer's DBD packet, which is almost always due to an MTU mismatch.\n- The peer router's MTU of 9000 is larger than the local MTU of 1500. Local router drops large DBD packets.\n\nResolution:\nConfigure the local router interface to ignore MTU mismatches for OSPF packets.\n\nCisco Configuration:\n```text\nHQ-Core-Switch-01(config)# interface GigabitEthernet1/0/1\nHQ-Core-Switch-01(config-if)# ip ospf mtu-ignore\nHQ-Core-Switch-01(config-if)# end\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose why SW-Core-01 is at 99% CPU with STP topology changes spiking, and provide the fix.",
+    "input": "Switch CPU is 99% due to ARP Input process. Spanning Tree show 10243 topology changes in 5 minutes originating from interface Gi1/0/24.",
+    "output": "Diagnostics:\n- The ARP Input process consuming >90% CPU indicates a broadcast storm, common during Layer 2 Spanning Tree loops.\n- The rapid rate of STP topology changes (10243 changes) points to interface GigabitEthernet1/0/24 flapping or bridging a loop.\n\nResolution:\nEnable Spanning Tree BPDU Guard on GigabitEthernet1/0/24 to block ports that receive unexpected bridge packets (BPDUs).\n\nCisco Configuration:\n```text\nSW-Core-01(config)# interface GigabitEthernet1/0/24\nSW-Core-01(config-if)# spanning-tree bpduguard enable\nSW-Core-01(config-if)# shutdown\nSW-Core-01(config-if)# no shutdown\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose why database VLAN 20 is isolated on switch port Gi1/0/48 and fix it.",
+    "input": "Trunk port Gi1/0/48 list of allowed VLANs shows: 1, 10, 99. VLAN 20 is active locally but not on the trunk.",
+    "output": "Diagnostics:\n- The trunk port allowed list restricts what VLAN tags can cross the uplink. Currently, only VLANs 1, 10, and 99 are allowed.\n- VLAN 20 is active on access interfaces Gi1/0/5 and Gi1/0/6, but cannot reach the gateway across the trunk.\n\nResolution:\nAdd VLAN 20 to the allowed list on interface GigabitEthernet1/0/48.\n\nCisco Configuration:\n```text\nSW-Core-02(config)# interface GigabitEthernet1/0/48\nSW-Core-02(config-if)# switchport trunk allowed vlan add 20\n```"
+  },
+  {
+    "instruction": "You are Windows Administrator. Diagnose Kerberos Event ID 4 authentication failures and write PowerShell commands to sync time.",
+    "input": "Time discrepancy of 10 minutes exists between local machine and DC-01. Kerberos authentication is failing.",
+    "output": "Diagnostics:\n- Kerberos protocols rely on timestamped tickets to prevent replay attacks. By default, Active Directory mandates that client and server clocks stay within 5 minutes of each other.\n- The client time (10:30:15 AM) differs from the DC time (10:40:15 AM) by 10 minutes, generating the KRB_AP_ERR_SKEW error.\n\nResolution:\nConfigure the Windows Time Service (w32time) to synchronize with the Domain Controller and trigger an immediate sync.\n\nPowerShell commands:\n```powershell\nw32tm /config /manualpeerlist:DC-01.corp.local,0x8 /syncfromflags:MANUAL\nStop-Service w32time\nStart-Service w32time\nw32tm /resync /force\n```"
+  },
+  {
+    "instruction": "You are Windows Administrator. Diagnose DNS external resolution failures and write PowerShell commands to enable recursion.",
+    "input": "Get-DnsServerSetting NoRecursion is True. Internal users cannot resolve public web domains.",
+    "output": "Diagnostics:\n- The 'Query refused' error for external lookups (like google.com) combined with the 'NoRecursion' status being True confirms recursion is blocked.\n- To allow clients to resolve internet hosts, the server must be permitted to run recursive queries and optionally forward queries to public forwarders.\n\nResolution:\nEnable recursion on the DNS server and configure external forwarders to handle public lookups.\n\nPowerShell command:\n```powershell\nSet-DnsServerSetting -NoRecursion $false\nAdd-DnsServerForwarder -IPAddress 8.8.8.8,1.1.1.1\nRestart-Service DNS\n```"
+  },
+  {
+    "instruction": "You are Windows Administrator. Diagnose print spooler crashes and write PowerShell commands to clear stuck queues and start the service.",
+    "input": "Print Spooler is Stopped. Corrupt print files exist in C:\\Windows\\System32\\spool\\PRINTERS.",
+    "output": "Diagnostics:\n- The stopped status of the Spooler service accompanied by active `.SPL` or `.SHD` files indicates that the service crashed when attempting to process a corrupt print job.\n- Standard resolution requires purging these temporary spool files to clear the queue and allow the engine to start cleanly.\n\nResolution:\nForce stop the Spooler service, delete all files in the print spool cache directory, and start the service.\n\nPowerShell script:\n```powershell\nStop-Service Spooler -Force\nRemove-Item C:\\Windows\\System32\\spool\\PRINTERS\\* -Force -Recurse\nStart-Service Spooler\n```"
+  },
+  {
+    "instruction": "You are Linux Administrator. Diagnose root partition disk exhaustion and write Bash commands to safely clear syslog size.",
+    "input": "df -h shows 100% usage on root disk. /var/log/syslog is consuming 28GB.",
+    "output": "Diagnostics:\n- The `df -h` command confirms the disk partition is fully saturated (100% usage).\n- The `du` command identifies `/var/log/syslog` as the primary cause of space exhaustion.\n- Simply using `rm` on an open log file may not free disk space because the writing process holds the file descriptor open. Using `truncate -s 0` is the safe, standard way to reclaim space immediately.\n\nResolution:\nTruncate `/var/log/syslog` to zero bytes and force logrotate to compress rotated logs.\n\nBash script:\n```bash\nsudo truncate -s 0 /var/log/syslog\nsudo logrotate -f /etc/logrotate.conf\n```"
+  },
+  {
+    "instruction": "You are Linux Administrator. Diagnose zombie process accumulation and write Bash commands to signal parent processes.",
+    "input": "250 zombie processes detected. Parent Process ID is 4015 (python process). Load average is 8.52.",
+    "output": "Diagnostics:\n- Zombie processes (defunct) occur when a child process terminates but the parent process has not yet read its exit status via wait().\n- While zombies do not consume CPU time directly, they occupy slots in the operating system process table. An exhausted process table blocks new tasks from executing.\n- Signaling the parent process (PID 4015) or restarting the parent service releases the zombie resource allocations.\n\nResolution:\nSend a hangup (HUP) signal to the parent process to trigger exit checking, or restart the parent worker daemon.\n\nBash script:\n```bash\nsudo kill -HUP 4015\nsudo systemctl restart python-worker.service\n```"
+  },
+  {
+    "instruction": "You are Linux Administrator. Diagnose CoreDNS CrashLoopBackOff routing loops and write YAML fixes.",
+    "input": "CoreDNS fatal log: 'Loop detected in query routing configuration for zone .'. forward directive points to /etc/resolv.conf.",
+    "output": "Diagnostics:\n- The 'Loop detected' panic is caused by CoreDNS forwarding DNS requests to a resolver that routes them back to CoreDNS, forming an infinite request loop.\n- Changing the upstream forward configuration in the coredns ConfigMap to point to an external resolver (like Google DNS `8.8.8.8`) resolves the routing loop.\n\nResolution:\nEdit the coredns ConfigMap to replace `forward . /etc/resolv.conf` with `forward . 8.8.8.8` and restart the coredns deployments.\n\nCoreDNS ConfigMap YAML segment:\n```yaml\ndata:\n  Corefile: |\n    .:53 {\n        errors\n        health\n        kubernetes cluster.local in-addr.arpa ip6.arpa {\n           pods insecure\n        }\n        forward . 8.8.8.8\n        loop\n        reload\n    }\n```"
+  },
+  {
+    "instruction": "You are NOC Engineer. Diagnose Cassandra replication status lag alerts and write repair commands.",
+    "input": "nodetool status shows node 10.0.20.11 is DN. Mismatches detected in netstats.",
+    "output": "Diagnostics:\n- The 'DN' status confirms node 10.0.20.11 is Down/Normal, indicating it has crashed or is unreachable.\n- Active node statistics confirm mismatches in data layers. When a node remains offline, dynamic replication gaps occur.\n\nResolution:\nEnsure the down node is restarted, and run `nodetool repair` to execute write-reconciliation streams.\n\nBash script:\n```bash\nsudo systemctl start cassandra\nnodetool repair production_keyspace\n```"
+  },
+  {
+    "instruction": "You are NOC Engineer. Diagnose HAProxy SSL handshake failures and write config modification steps.",
+    "input": "HAProxy logs show 'no shared cipher' errors. SSL handshakes are dropping for 25% of traffic.",
+    "output": "Diagnostics:\n- The OpenSSL error code `no shared cipher` indicates that HAProxy and the client browser could not agree on an encryption algorithm.\n- Restoring standard ECDHE cipher configurations resolves connection dropouts.\n\nResolution:\nConfigure modern cipher compatibility in the HAProxy configuration file and reload the service.\n\nBash script:\n```bash\nsudo sed -i 's/ssl-default-bind-ciphers.*/ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384/' /etc/haproxy/haproxy.cfg\nsudo systemctl reload haproxy\n```"
+  },
+  {
+    "instruction": "You are NOC Engineer. Diagnose Kafka consumer lag spikes and write container restart actions.",
+    "input": "describe group shows partition 1 has no assigned CONSUMER-ID. Lag is 1.5 million messages on raw-telemetry.",
+    "output": "Diagnostics:\n- The missing `CONSUMER-ID` and host parameters on partition 1 indicates that this partition is unassigned. This explains the rapidly growing consumer lag.\n- This happens when a consumer instance crashed uncleanly or got stuck, leaving the coordinator node unaware of the drop until timeout.\n\nResolution:\nRestart the ingest consumer containers to force consumer group rebalancing and reassign partition 1.\n\nBash command:\n```bash\nsudo docker restart telemetry-worker-01 telemetry-worker-02\n```"
+  },
+  {
+    "instruction": "You are Security Analyst. Diagnose ransomware processes and write PowerShell commands to kill the process and block C2 IP.",
+    "input": "EDR alert: File Server FILE-SRV-01 writing '.locked' files. High CPU process ID is 6880. Connection established to 198.51.100.80:4444.",
+    "output": "Diagnostics:\n- High volume renaming of files to '.locked' combined with high CPU process activity indicates ransomware execution.\n- Process 6880 (`update-service`) is acting as the encryption agent.\n- Connection to remote host 198.51.100.80:4444 confirms command-and-control (C2) communication.\n\nResolution:\nKill the malicious process 6880 and block the C2 IP addresses in the firewall.\n\nPowerShell commands:\n```powershell\nStop-Process -Id 6880 -Force\nNew-NetFirewallRule -DisplayName \"Block C2 IP\" -Direction Outbound -RemoteAddress 198.51.100.80 -Action Block\nNew-NetFirewallRule -DisplayName \"Block C2 IP In\" -Direction Inbound -RemoteAddress 198.51.100.80 -Action Block\n```"
+  },
+  {
+    "instruction": "You are Security Analyst. Diagnose database exfiltration attempts and write Bash commands to block IP and rotate DB credentials.",
+    "input": "MySQL database connection established from external IP 203.0.113.80. logs reveal connection using compromised user 'admin_app'.",
+    "output": "Diagnostics:\n- The presence of an established connection from public IP `203.0.113.80` to database port 3306 indicates network exposure.\n- High database volume transfer matches data exfiltration profile.\n\nResolution:\nBlock the host IP immediately using iptables rules and rotate database credentials.\n\nBash script:\n```bash\nsudo iptables -A INPUT -s 203.0.113.80 -j DROP\nmysql -u root -p -e \"ALTER USER 'admin_app'@'203.0.113.80' IDENTIFIED BY 'new_secure_pwd_2026'; FLUSH PRIVILEGES;\"\n```"
+  },
+  {
+    "instruction": "You are Security Analyst. Diagnose expired TLS certificates and write OpenSSL commands to generate new keys.",
+    "input": "Nginx gateway TLS certificate expired. 'Not After' value is Jun 26 2026. Current date is Jun 27 2026.",
+    "output": "Diagnostics:\n- The OpenSSL validation outputs confirm the TLS certificate has expired, blocking connection negotiations between API workers.\n- Generating a new keypair and restarting the web engine restores endpoints.\n\nResolution:\nGenerate a new private key and Certificate Signing Request (CSR) for local renewal.\n\nBash command:\n```bash\nopenssl req -new -newkey rsa:2048 -nodes -keyout /etc/nginx/certs/api.key -out /etc/nginx/certs/api.csr -subj \"/CN=api.corp.local\"\nsudo systemctl restart nginx\n```"
+  },
+  {
+    "instruction": "You are Cloud Engineer. Diagnose AWS Security Group egress blocks and write JSON config modifications.",
+    "input": "Outbound egress Security Group sg-0abc123d456ef7890 only allows port 80. Connection requests to HTTPS Stripe API are failing.",
+    "output": "Diagnostics:\n- Security groups block traffic unless explicitly allowed. The configuration shows outbound permission is limited to port 80.\n- HTTPS traffic (required by modern payment APIs) runs over port 443 and is dropped by the firewall.\n\nResolution:\nAdd an egress permission rule to the security group permitting port 443 outbound access.\n\nSecurity Group JSON configuration:\n```json\n{\n  \"IpProtocol\": \"tcp\",\n  \"FromPort\": 443,\n  \"ToPort\": 443,\n  \"IpRanges\": [{\"CidrIp\": \"0.0.0.0/0\"}]\n}\n```"
+  },
+  {
+    "instruction": "You are Cloud Engineer. Diagnose Azure subnet IP exhaustion crashes and write Azure subnet expansion updates.",
+    "input": "Azure AKS subnet 10.240.0.0/24 is full. Pod deployment fails with IP configuration failure.",
+    "output": "Diagnostics:\n- Subnet prefix `/24` limits allocatable addresses to 251 (Azure reserves 5). Since 250 IP allocations exist, no new containers can initialize.\n- Upgrading the subnet size to `/20` increases total capacity to 4096 addresses.\n\nResolution:\nModify the subnet prefix configuration in Azure Virtual Network settings.\n\nAzure configuration segment:\n```json\n{\n  \"addressPrefix\": \"10.240.0.0/20\"\n}\n```"
+  },
+  {
+    "instruction": "You are Cloud Engineer. Diagnose GCP Cloud SQL connection failures and write gcloud configuration command templates.",
+    "input": "Cloud SQL DB prod-mysql-db only authorizes 198.51.100.0/24. New VM 34.120.5.10 is blocked.",
+    "output": "Diagnostics:\n- Cloud SQL blocks connection packets unless the origin IP is explicitly configured in the database access control list.\n- Adding the VM external IP address resolves the firewall block.\n\nResolution:\nUpdate the SQL authorized network settings using the GCP gcloud CLI.\n\nBash command:\n```bash\ngcloud sql instances patch prod-mysql-db \\\n  --authorized-networks=corporate-office=198.51.100.0/24,app-instance=34.120.5.10/32\n```"
+  },
+  {
+    "instruction": "You are Documentation Specialist. Draft a standard operating procedure (SOP) template for ransomware containment.",
+    "input": "Create a clear step-by-step markdown SOP template for server ransomware mitigation.",
+    "output": "Ransomware Containment SOP Template:\n\n```markdown\n# SOP: Datacenter Ransomware Containment\n\n## 1. Initial Identification\n- Monitor security alerts (EDR / Wazuh).\n- Check for high disk CPU and `.locked` extensions.\n\n## 2. Immediate Containment\n- Locate the malicious process ID using PowerShell:\n  `Get-Process | Sort-Object CPU`\n- Force terminate process:\n  `Stop-Process -Id <PID> -Force`\n- Block C2 connections:\n  `New-NetFirewallRule -RemoteAddress <C2_IP> -Action Block`\n- Isolate the server host network interface.\n\n## 3. Post-Incident Review\n- Notify Security Response Team.\n```"
+  },
+  {
+    "instruction": "You are Documentation Specialist. Create a standard Post-Mortem Root Cause Analysis (RCA) report template.",
+    "input": "Provide a clean markdown post-mortem RCA template structure.",
+    "output": "RCA Template:\n\n```markdown\n# Root Cause Analysis (RCA) Template\n\n## Incident Metadata\n| Field | Value |\n|---|---|\n| Incident ID | RCA-2026-xxxx |\n| Date | |\n| Severity | |\n\n## Summary\nDescribe the user impact and incident symptoms.\n\n## Root Cause\nExplain the technical reasons why the issue occurred.\n\n## Resolution\nList the immediate steps taken to resolve the issue.\n\n## Prevention Plan\nDefine long-term actions to prevent recurrence.\n```"
+  },
+  {
+    "instruction": "You are Documentation Specialist. Create a Postgres database restoration SOP.",
+    "input": "Write a markdown database recovery SOP document detailing pg_restore commands.",
+    "output": "Postgres Restoration SOP:\n\n```markdown\n# SOP: PostgreSQL Backup Restoration\n\n## 1. Stop Application Services\n```bash\nsudo systemctl stop node-app.service\n```\n\n## 2. Re-create database schema\n```bash\ndropdb -U postgres prod_db\ncreatedb -U postgres prod_db\n```\n\n## 3. Restore snapshot dump\n```bash\npg_restore -U postgres -d prod_db -F c /var/backups/db_snapshot.dump\n```\n\n## 4. Start Application Services\n```bash\nsudo systemctl start node-app.service\n```\n```"
+  },
+  {
+    "instruction": "You are Automation Engineer. Diagnose Helm lint syntax errors and write corrected YAML mappings.",
+    "input": "deployment.yaml has indentation error on line 12: '- name: ' is unindented under containers.",
+    "output": "Diagnostics:\n- YAML is white-space sensitive. In Kubernetes deployments, the `containers` array must be properly nested under the `spec` container group.\n- Indenting `- name` and associated properties resolves the parsing error.\n\nResolution:\nIndent container definitions to correct YAML indentation blocks.\n\nCorrected template:\n```yaml\n    spec:\n      containers:\n        - name: {{ .Values.name }}\n          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}\n```"
+  },
+  {
+    "instruction": "You are Automation Engineer. Diagnose Terraform lock state blocks and write force-unlock commands.",
+    "input": "Terraform lock acquired by 5a9b0c-1234 is blocking deployments. DynamoDB lock entry exists.",
+    "output": "Diagnostics:\n- Terraform locks state files during writes to prevent concurrent pipeline modification conflicts.\n- If a task terminates abruptly, the lock record remains in DynamoDB, blocking future executions.\n- Using `force-unlock` removes the lock record.\n\nResolution:\nExecute the terraform force-unlock CLI command with the lock ID.\n\nBash command:\n```bash\nterraform force-unlock -force 5a9b0c-1234\n```"
+  },
+  {
+    "instruction": "You are Automation Engineer. Diagnose missing secrets in GitHub workflows.",
+    "input": "Workflow deploy job fails with missing SSH authentication key. Workflow references secrets.SSH_PRIVATE_KEY_PROD.",
+    "output": "Diagnostics:\n- The workflow deployment script requires a private key stored in `${{ secrets.SSH_PRIVATE_KEY_PROD }}`.\n- If this key is empty or missing, the `echo \"$SSH_KEY\"` creates an empty file, failing SSH authentication attempts.\n\nResolution:\nConfigure the SSH private key in GitHub Repository Settings under the name 'SSH_PRIVATE_KEY_PROD'.\n\nGitHub configuration steps:\n1. Go to repository Settings > Secrets and variables > Actions.\n2. Click 'New repository secret'.\n3. Set Name to 'SSH_PRIVATE_KEY_PROD' and paste the private key content."
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose HSRP Split-Brain issues and write Cisco commands to resolve dual-active status.",
+    "input": "HSRP group 1 shows Active on both core switches. Peer IP is listed as unknown on the standby switch.",
+    "output": "Diagnostics:\n- HSRP uses hello packets to determine peer health. If the standby switch shows the active switch as 'unknown', it is not receiving hello packets.\n- Dual active gateways cause MAC flapping and route drops as clients send traffic to both interfaces alternately.\n\nResolution:\nVerify trunk status between the switches and ensure the HSRP VLAN is allowed on the inter-switch link.\n\nCisco Configuration:\n```text\nSW-Core-02(config)# interface Port-channel1\nSW-Core-02(config-if)# switchport trunk allowed vlan add 10\nSW-Core-02(config-if)# end\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose static routing blackholes and write Cisco configurations for IP SLA route tracking.",
+    "input": "Default route points to 203.0.113.1. Interface is up, but gateway is unreachable. Traffic is not failing over to backup gateway 198.51.100.1.",
+    "output": "Diagnostics:\n- When a static route points to an interface, it stays in the routing table as long as the interface link is UP.\n- If the upstream link is down (path failure), the router blackholes traffic.\n- Using IP SLA ICMP tracking checks actual IP reachability. If pings fail, the track goes down, withdrawing the primary route and allowing the backup route (with higher administrative distance) to take over.\n\nResolution:\nConfigure IP SLA tracking for 203.0.113.1 and tie it to the default route.\n\nCisco Configuration:\n```text\nHQ-Edge-01(config)# ip sla 10\nHQ-Edge-01(config-ip-sla)# icmp-echo 203.0.113.1 source-interface GigabitEthernet0/0\nHQ-Edge-01(config-ip-sla-echo)# frequency 5\nHQ-Edge-01(config-ip-sla-echo)# exit\nHQ-Edge-01(config)# ip sla schedule 10 life forever start-time now\nHQ-Edge-01(config)# track 10 ip sla 10 state\nHQ-Edge-01(config)# no ip route 0.0.0.0 0.0.0.0 203.0.113.1\nHQ-Edge-01(config)# ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 10\nHQ-Edge-01(config)# ip route 0.0.0.0 0.0.0.0 198.51.100.1 10\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose LACP Port-channel suspension states and write Cisco interface commands.",
+    "input": "Etherchannel ports show state '(I)'. Mode is LACP. The other side switch is configured in passive mode.",
+    "output": "Diagnostics:\n- The port state status '(I)' means the switch interface is suspended because LACP negotiation failed.\n- LACP requires at least one peer to be in 'active' mode. If both sides are configured as 'passive', they only listen for LACP packets and never send them, leaving the channel down.\n\nResolution:\nConfigure the local port group to operate in LACP 'active' mode.\n\nCisco Configuration:\n```text\nSW-Core-01(config)# interface range GigabitEthernet1/0/1 - 2\nSW-Core-01(config-if-range)# channel-group 1 mode active\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose DAI packet drops and write trust configuration commands.",
+    "input": "DAI drops legitimate gateway ARP announcements. Uplink interface Gi1/0/24 is not trusted.",
+    "output": "Diagnostics:\n- Dynamic ARP Inspection (DAI) compares incoming ARP packets against the DHCP snooping database. If there's no match, it drops the packet.\n- Legitimate static gateways do not register via DHCP snooping, so their ARP frames are dropped unless the interface is explicitly configured as trusted.\n\nResolution:\nConfigure the gateway interface Gi1/0/24 as a trusted interface for DAI and DHCP Snooping.\n\nCisco Configuration:\n```text\nSW-Core-01(config)# interface GigabitEthernet1/0/24\nSW-Core-01(config-if)# ip arp inspection trust\nSW-Core-01(config-if)# ip dhcp snooping trust\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose BGP route dampening blocks and write Cisco commands to clear penalties.",
+    "input": "BGP prefix 198.51.100.0/24 is dampened with a penalty of 3200. Upstream link has stabilized.",
+    "output": "Diagnostics:\n- BGP Route Dampening assigns a penalty to routes that flap. If the penalty exceeds the limit, the route is suppressed.\n- Since the link has stabilized, the penalty can be cleared manually to restore network connectivity instantly.\n\nResolution:\nClear the BGP dampening records for the affected prefix.\n\nCisco Configuration:\n```text\nHQ-Core-Router-01# clear ip bgp dampening 198.51.100.0/24\nHQ-Core-Router-01# clear ip bgp 203.0.113.1 soft in\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose Hairpin NAT ASA drop issues and write loopback NAT commands.",
+    "input": "Internal clients fail to reach public IP 203.0.113.5 on inside interface. ASA packet-tracer drops with 'nat-no-xlate-to-pat-pool'.",
+    "output": "Diagnostics:\n- Hairpin NAT allows packets to arrive at a firewall from an internal network, get translated to a public IP, and immediately loop back to an internal server.\n- Lacking an inside-to-inside translation rule causes ASA to block loopback requests.\n\nResolution:\nConfigure an ASA inside-to-inside dynamic translation rule.\n\nASA Configuration:\n```text\nASA-Edge-01(config)# nat (inside,inside) source dynamic any interface destination static 203.0.113.5 10.0.10.5\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose rogue DHCP server allocations and write Cisco commands to shut down offending ports.",
+    "input": "DHCP snooping blocks rogue DHCP OFFER packets arriving on untrusted port Gi1/0/12. Shut down the interface.",
+    "output": "Diagnostics:\n- A rogue DHCP server causes IP address conflicts and man-in-the-middle risks by offering clients invalid gateways.\n- DHCP Snooping drops DHCP OFFER and ACK packets that arrive on untrusted ports.\n- Shutting down port Gi1/0/12 isolates the device.\n\nResolution:\nDisable the physical port Gi1/0/12 to isolate the rogue server.\n\nCisco Configuration:\n```text\nSW-Core-01(config)# interface GigabitEthernet1/0/12\nSW-Core-01(config-if)# shutdown\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose overlapping subnets over IPsec tunnels and write Cisco NAT rules.",
+    "input": "Subnet overlap (192.168.1.0/24) exists on both sides of the VPN tunnel. Cisco NAT objects must map local real to virtual range 172.16.1.0.",
+    "output": "Diagnostics:\n- IP packets cannot be routed over a VPN tunnel if the source and destination subnets are identical.\n- Resolving this requires twice NAT (Policy NAT) to translate local IPs to a virtual subnet (172.16.1.0/24) before forwarding.\n\nResolution:\nConfigure Cisco NAT object mappings to translate local addresses.\n\nCisco Configuration:\n```text\nHQ-VPN-01(config)# object network local-real\nHQ-VPN-01(config-network-object)# subnet 192.168.1.0 255.255.255.0\nHQ-VPN-01(config-network-object)# object network local-mapped\nHQ-VPN-01(config-network-object)# subnet 172.16.1.0 255.255.255.0\nHQ-VPN-01(config-network-object)# exit\nHQ-VPN-01(config)# nat (inside,outside) source static local-real local-mapped\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose voice quality degradation and write Cisco QoS class configurations.",
+    "input": "VOICE class-map is matched to IP DSCP EF, but has no priority queue configured. High packet loss is active.",
+    "output": "Diagnostics:\n- Voice traffic is highly sensitive to jitter and delay. Standard class queuing scheduler rules do not guarantee immediate forwarding.\n- Enforcing a strict priority queue guarantees voice packets are processed first before other classes.\n\nResolution:\nAdd strict priority queuing parameters under the VOICE class-map.\n\nCisco Configuration:\n```text\nHQ-Core-Router-01(config)# policy-map WAN-QOS\nHQ-Core-Router-01(config-pmap)# class VOICE\nHQ-Core-Router-01(config-pmap-c)# priority percent 10\n```"
+  },
+  {
+    "instruction": "You are Network Engineer. Diagnose BGP prefix leaks and write Cisco prefix-list filters.",
+    "input": "BGP router advertises private range 10.0.0.0/8 to peer 203.0.113.1. Create a prefix-list to only allow public prefix 198.51.100.0/24.",
+    "output": "Diagnostics:\n- Private subnets (RFC 1918) are non-routable on the public internet and must not be advertised to external BGP peers.\n- Creating a prefix-list and binding it as neighbor filter outbound stops the leak.\n\nResolution:\nCreate a prefix-list permitting public prefixes and bind it to the BGP neighbor outbound.\n\nCisco Configuration:\n```text\nHQ-Edge-Router-01(config)# ip prefix-list PERMIT-OUT-LIST permit 198.51.100.0/24\nHQ-Edge-Router-01(config)# router bgp 65001\nHQ-Edge-Router-01(config-router)# neighbor 203.0.113.1 prefix-list PERMIT-OUT-LIST out\n```"
+  }
+]

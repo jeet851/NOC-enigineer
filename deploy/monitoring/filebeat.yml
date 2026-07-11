@@ -1,0 +1,46 @@
+filebeat.inputs:
+# 1. Capture application syslogs
+- type: log
+  enabled: true
+  paths:
+    - /app/syslogs.log
+    - /var/log/nginx/*.log
+  fields:
+    service: noc-dashboard
+    environment: production
+  fields_under_root: true
+
+# 2. Capture Docker stdout logs
+- type: container
+  enabled: true
+  paths:
+    - /var/lib/docker/containers/*/*.log
+  processors:
+    - add_kubernetes_metadata:
+        host: ${NODE_NAME}
+        matchers:
+          - logs_path:
+              logs_depth: 4
+
+# ==========================================
+# Elasticsearch Output destination
+# ==========================================
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  # Optional credentials for protected elastic clusters
+  # username: "elastic"
+  # password: "changeme"
+
+# ==========================================
+# Kibana Configuration Dashboard
+# ==========================================
+setup.kibana:
+  host: "http://kibana:5601"
+
+logging.level: warning
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0640

@@ -1,0 +1,138 @@
+# ----------------------------------------------------
+# PVC: Shared SQLite Database Storage
+# ----------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlite-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ----------------------------------------------------
+# StatefulSet: Redis Cache
+# ----------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-redis-headless
+  namespace: default
+  labels:
+    app: noc-redis
+spec:
+  ports:
+  - port: 6379
+    name: redis
+  clusterIP: None
+  selector:
+    app: noc-redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: noc-redis
+  namespace: default
+spec:
+  serviceName: "noc-redis-headless"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noc-redis
+  template:
+    metadata:
+      labels:
+        app: noc-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.2-alpine
+        command: ["redis-server", "--appendonly", "yes"]
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi
+
+---
+# ----------------------------------------------------
+# StatefulSet: RabbitMQ Message Broker
+# ----------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-rabbitmq-headless
+  namespace: default
+  labels:
+    app: noc-rabbitmq
+spec:
+  ports:
+  - port: 5672
+    name: amqp
+  - port: 15672
+    name: management
+  clusterIP: None
+  selector:
+    app: noc-rabbitmq
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: noc-rabbitmq
+  namespace: default
+spec:
+  serviceName: "noc-rabbitmq-headless"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noc-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: noc-rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12-management-alpine
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: "guest"
+        - name: RABBITMQ_DEFAULT_PASS
+          value: "guest"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi

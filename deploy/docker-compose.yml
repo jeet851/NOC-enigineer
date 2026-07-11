@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------
+  # Web API Server (FastAPI)
+  # ----------------------------------------------------
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: noc_web_app
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=sqlite:////app/data/network_noc.db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
+      - BIND_HOST=0.0.0.0
+      - PORT=5001
+    volumes:
+      - db_data:/app/data
+      - cert_data:/app/certs
+    depends_on:
+      - redis
+      - rabbitmq
+
+  # ----------------------------------------------------
+  # Celery Asynchronous Workers
+  # ----------------------------------------------------
+  celery_worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: noc_celery_worker
+    restart: always
+    command: celery -A workers.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=sqlite:////app/data/network_noc.db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
+    volumes:
+      - db_data:/app/data
+    depends_on:
+      - redis
+      - rabbitmq
+
+  # ----------------------------------------------------
+  # Shared Cache (Redis)
+  # ----------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: noc_redis_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # ----------------------------------------------------
+  # Message Broker (RabbitMQ)
+  # ----------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: noc_rabbitmq_broker
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  # ----------------------------------------------------
+  # Edge Gateway & SSL Load Balancer (NGINX)
+  # ----------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: noc_nginx_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+
+  # ----------------------------------------------------
+  # Monitoring: Time Series Database (Prometheus)
+  # ----------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: noc_prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  # ----------------------------------------------------
+  # Monitoring: Visual Analytics (Grafana)
+  # ----------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.1.5
+    container_name: noc_grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  db_data:
+  cert_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:

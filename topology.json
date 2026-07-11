@@ -1,0 +1,90 @@
+{
+    "nodes": [
+        {
+            "name": "cisco-core-switch",
+            "label": "Cisco Catalyst 9300L",
+            "ip": "10.0.10.5",
+            "vendor": "Cisco"
+        },
+        {
+            "name": "juniper-srx-edge",
+            "label": "Juniper SRX300-Edge",
+            "ip": "10.0.10.6",
+            "vendor": "Juniper"
+        },
+        {
+            "name": "arista-leaf-01",
+            "label": "Arista DCS-7050SX3",
+            "ip": "10.0.10.12",
+            "vendor": "Arista"
+        },
+        {
+            "name": "fortinet-utm-fw",
+            "label": "Fortinet FortiGate 100F",
+            "ip": "10.0.10.20",
+            "vendor": "Fortinet"
+        },
+        {
+            "name": "paloalto-edge-fw",
+            "label": "Palo Alto PA-820",
+            "ip": "10.0.10.22",
+            "vendor": "Palo Alto"
+        },
+        {
+            "name": "huawei-ar-router",
+            "label": "Huawei NetEngine AR6120",
+            "ip": "10.0.10.30",
+            "vendor": "Huawei"
+        },
+        {
+            "name": "linux-db-srv",
+            "label": "Linux PowerEdge R740",
+            "ip": "10.0.10.40",
+            "vendor": "Linux"
+        },
+        {
+            "name": "win-ad-domain",
+            "label": "Windows ProLiant DL360",
+            "ip": "10.0.10.42",
+            "vendor": "Windows"
+        },
+        {
+            "name": "vmware-esxi-host",
+            "label": "VMware vSphere ESXi",
+            "ip": "10.0.10.45",
+            "vendor": "VMware"
+        }
+    ],
+    "edges": [
+        {
+            "source": "cisco-core-switch",
+            "target": "juniper-srx-edge",
+            "type": "LLDP",
+            "details": "GigabitEthernet1/0/1 -> ge-0/0/0"
+        },
+        {
+            "source": "juniper-srx-edge",
+            "target": "arista-leaf-01",
+            "type": "LLDP",
+            "details": "ge-0/0/1 -> Ethernet1"
+        },
+        {
+            "source": "arista-leaf-01",
+            "target": "fortinet-utm-fw",
+            "type": "LLDP",
+            "details": "Ethernet2 -> port1"
+        },
+        {
+            "source": "fortinet-utm-fw",
+            "target": "paloalto-edge-fw",
+            "type": "LLDP",
+            "details": "port2 -> ethernet1/1"
+        },
+        {
+            "source": "huawei-ar-router",
+            "target": "cisco-core-switch",
+            "type": "LLDP",
+            "details": "GigabitEthernet0/0/0 -> GigabitEthernet1/0/2"
+        }
+    ]
+}
