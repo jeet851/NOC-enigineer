@@ -27,9 +27,10 @@ def get_help_blocks():
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    "Welcome to the **AIOps Multi-Agent Platform**. You can chat with me in channels by mentioning me "
+                    "Welcome to the **Enterprise AIOps Copilot** (Phase 3 Intelligence). You can chat in channels by mentioning me "
                     "or by messaging me directly in DMs.\n\n"
-                    "I will **automatically route** your incident alerts to the correct agent domain, or you can switch agents manually."
+                    "I will **automatically route** your query using multi-signal intent analysis, or you can switch agents manually.\n\n"
+                    "*New Phase 3 slash commands*: `/rca`, `/risk`, `/mop`, `/recommend`"
                 )
             }
         },
@@ -38,15 +39,18 @@ def get_help_blocks():
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Active Operational Agents:*\n"
+                "text": "*Active Operational Agents (11 Specialists):*\n"
                         "• 🌐 *Network Engineer*: BGP/OSPF, VLAN configuration, VPN troubleshooting.\n"
-                        "• 🖥️ *Windows Administrator*: Active Directory management, IIS, Hyper-V, and DNS.\n"
-                        "• 🐧 *Linux Administrator*: Apache/Nginx routing, Docker, Kubernetes system loads.\n"
+                        "• 🖥️ *Windows Administrator*: Active Directory, IIS, Hyper-V, Group Policy.\n"
+                        "• 🐧 *Linux Administrator*: Apache/Nginx, Docker, Kubernetes, OS hardening.\n"
                         "• 🚨 *NOC Engineer*: Alert analysis, SLA monitoring, telemetry sweeps.\n"
-                        "• 🛡️ *Security Analyst*: Firewall syslog audits, threat detection, blocking access IPs.\n"
-                        "• ☁️ *Cloud Engineer*: Public Cloud (AWS/Azure/GCP) networking and access rules.\n"
-                        "• 📝 *Documentation Specialist*: SOP/MOP writing, post-outage RCA generation.\n"
-                        "• ⚙️ *Automation Engineer*: Self-healing execution, playbooks, and scripting."
+                        "• 🛡️ *Security Analyst*: Firewall audits, threat detection, NIST compliance.\n"
+                        "• ☁️ *Cloud Engineer*: AWS/Azure/GCP networking, IAM, cost optimization.\n"
+                        "• 📝 *Documentation Specialist*: SOP/MOP writing, post-outage RCA.\n"
+                        "• ⚙️ *Automation Engineer*: Ansible, Netmiko, CI/CD, self-healing.\n"
+                        "• 🗄️ *Database Specialist*: MySQL, PostgreSQL, Oracle, MongoDB, Redis.\n"
+                        "• 🔄 *DevOps Engineer*: CI/CD pipelines, Kubernetes, Prometheus, GitOps.\n"
+                        "• 🤖 *Friendly Assistant*: General navigation and platform overview."
             }
         },
         {
@@ -341,10 +345,29 @@ def process_incoming_chat(client, event):
                         "type": "button",
                         "text": {
                             "type": "plain_text",
-                            "text": "Generate RCA 📝",
+                            "text": "Structured RCA 📝",
                             "emoji": True
                         },
                         "action_id": f"generate_rca_{safe_key}"
+                    },
+                    {
+                        "type": "button",
+                        "style": "danger",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Risk Assessment 🔴",
+                            "emoji": True
+                        },
+                        "action_id": f"risk_assess_{safe_key}"
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Generate MOP 📄",
+                            "emoji": True
+                        },
+                        "action_id": f"generate_mop_{safe_key}"
                     }
                 ]
             })

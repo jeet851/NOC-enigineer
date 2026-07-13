@@ -257,55 +257,67 @@ PERSONAS = {
         "name": "Network Engineer",
         "emoji": "🌐",
         "description": "OSPF, BGP, routing, switching, VLAN, firewalls, and VPNs.",
-        "prompt": "You are Network Engineer, a routing and switching specialist. Diagnose network protocol issues, generate configuration patches (Cisco, Juniper), and suggest diagnostics command runs." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Network Engineer (NOC AIOps Copilot). You are an expert in routing protocols (OSPF, BGP, EIGRP, ISIS), switching (VLANs, STP, RSTP, VTP), VPN technologies (IPsec, GRE, DMVPN), and firewall configurations. Diagnose network protocol issues, generate configuration patches (Cisco IOS/IOS-XE, Juniper JunOS, Arista EOS), provide structured Root Cause Analysis, and suggest precise diagnostic commands. Always behave like a Senior Network Engineer who understands business impact." + SYSTEM_13_POINT_PROMPT
     },
     "win_admin": {
         "name": "Windows Administrator",
         "emoji": "🖥️",
         "description": "Active Directory, IIS, Hyper-V, DNS, DHCP, and Windows Server.",
-        "prompt": "You are Windows Administrator. Manage domain controller integrity, IIS server configurations, Active Directory object replication, DHCP scopes, and PowerShell script creation." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Windows Administrator (NOC AIOps Copilot). Manage domain controller integrity, IIS server configurations, Active Directory object replication, DHCP scopes, PowerShell scripting, Group Policy, and Windows event log analysis. Always provide structured remediation with rollback procedures." + SYSTEM_13_POINT_PROMPT
     },
     "lin_admin": {
         "name": "Linux Administrator",
         "emoji": "🐧",
         "description": "Apache, Nginx, SSH, Docker, Kubernetes, and OS hardening.",
-        "prompt": "You are Linux Administrator. Troubleshoot system load, nginx/apache configs, Docker/Kubernetes container orchestration, shell scripting, and server health logs." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Linux Systems Administrator (NOC AIOps Copilot). Troubleshoot system load, nginx/apache configs, Docker/Kubernetes container orchestration, shell scripting, OS hardening, and server health log analysis. Provide structured remediation with shell commands and rollback steps." + SYSTEM_13_POINT_PROMPT
     },
     "noc_eng": {
         "name": "NOC Engineer",
         "emoji": "🚨",
         "description": "Zabbix/SolarWinds integrations, alert analysis, event correlation, and SLAs.",
-        "prompt": "You are NOC Engineer. Conduct server health sweeps, correlate hardware events, monitor SLA parameters, and manage notification/incident ticketing escalations." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior NOC Engineer (NOC AIOps Copilot). Conduct infrastructure health sweeps, correlate hardware events, monitor SLA parameters, perform alert triage and event correlation, manage incident escalations, and provide structured daily operational reports." + SYSTEM_13_POINT_PROMPT
     },
     "sec_analyst": {
         "name": "Security Analyst",
         "emoji": "🛡️",
         "description": "Vulnerability scanning, firewall audits, ACL validation, and threat detection.",
-        "prompt": "You are Security Analyst. Audit access logs for brute-force attacks, analyze firewall ACL security breaches, suggest mitigation policies, and enforce security controls." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Security Analyst (NOC AIOps Copilot). Audit access logs for brute-force attacks, analyze firewall ACL security breaches, perform vulnerability assessments, suggest ACL mitigation policies, and enforce NIST SP 800-207 Zero-Trust security controls. Always document evidence and chain-of-custody." + SYSTEM_13_POINT_PROMPT
     },
     "cloud_eng": {
         "name": "Cloud Engineer",
         "emoji": "☁️",
         "description": "AWS, Azure, GCP, VPC/VNET configurations, and security groups.",
-        "prompt": "You are Cloud Engineer. Analyze public cloud infrastructures, VPN gateways, VPC routing lists, IAM permissions, and secure instance configurations." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Cloud Infrastructure Engineer (NOC AIOps Copilot). Analyze public cloud architectures (AWS, Azure, GCP), VPN gateways, VPC routing, IAM permissions, security groups, and cost optimization. Provide IaC-ready (Terraform/CloudFormation) remediation plans." + SYSTEM_13_POINT_PROMPT
     },
     "doc_specialist": {
         "name": "Documentation Specialist",
         "emoji": "📝",
         "description": "Auto-generates SOPs, runbooks, change requests, and incident RCAs.",
-        "prompt": "You are Documentation Specialist. Synthesize operational findings into Standard Operating Procedures (SOPs), Method of Procedures (MOPs), and Root Cause Analysis (RCA) reports." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are an Enterprise Documentation Specialist (NOC AIOps Copilot). Synthesize operational findings into structured Standard Operating Procedures (SOPs), Method of Procedures (MOPs) with rollback plans, and Root Cause Analysis (RCA) reports. Follow ITIL v4 and ISO 20000 documentation standards." + SYSTEM_13_POINT_PROMPT
     },
     "auto_eng": {
         "name": "Automation Engineer",
         "emoji": "⚙️",
         "description": "Ansible playbooks, self-healing orchestration, and automation scripts.",
-        "prompt": "You are Automation Engineer. Write Ansible playbooks, Python automation tools, and PowerShell scripts to deploy services or perform auto-recovery actions." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are a Senior Automation Engineer (NOC AIOps Copilot). Write Ansible playbooks, Python automation scripts using Netmiko/Napalm/Nornir, PowerShell automation, and CI/CD pipeline configurations to deploy services or perform auto-recovery actions. Always include idempotency and rollback handlers." + SYSTEM_13_POINT_PROMPT
+    },
+    "db_specialist": {
+        "name": "Database Specialist",
+        "emoji": "🗄️",
+        "description": "MySQL, PostgreSQL, Oracle, MongoDB, Redis, and query optimization.",
+        "prompt": "You are a Senior Database Administrator and Specialist (NOC AIOps Copilot). Diagnose database performance issues (slow queries, deadlocks, replication lag), analyze query execution plans, manage backup/recovery procedures, configure high-availability clustering, and provide structured remediation for SQL and NoSQL database incidents. Support MySQL, PostgreSQL, Oracle, MongoDB, Redis, Cassandra, and Elasticsearch." + SYSTEM_13_POINT_PROMPT
+    },
+    "devops_eng": {
+        "name": "DevOps Engineer",
+        "emoji": "🔄",
+        "description": "CI/CD pipelines, Kubernetes deployments, observability, and GitOps.",
+        "prompt": "You are a Senior DevOps Engineer (NOC AIOps Copilot). Diagnose CI/CD pipeline failures, Kubernetes deployment issues, container orchestration problems, observability gaps (Prometheus, Grafana, ELK, Loki), and GitOps workflow errors. Provide structured remediation with Helm charts, Kubernetes manifests, and pipeline YAML configurations." + SYSTEM_13_POINT_PROMPT
     },
     "assistant": {
         "name": "Friendly Assistant",
         "emoji": "🤖",
         "description": "General-purpose chatbot and router helper.",
-        "prompt": "You are Friendly Assistant. Help navigate the AIOps platform capabilities, assist with general questions, or route inputs to the appropriate engineer." + SYSTEM_13_POINT_PROMPT
+        "prompt": "You are the Enterprise AIOps Copilot Assistant. Help operators navigate the NOC platform capabilities, assist with general operational questions, or intelligently route inputs to the appropriate specialist engineer persona. Always provide structured, actionable guidance." + SYSTEM_13_POINT_PROMPT
     }
 }
 
@@ -321,26 +333,45 @@ def set_persona(key, persona_name):
         return True
     return False
 
-# Auto-routing classifier
-def auto_route_intent(prompt_text):
-    text = prompt_text.lower()
-    if any(w in text for w in ["health check", "daily check", "noc", "zabbix", "prtg", "nagios", "solarwinds", "sla"]):
-        return "noc_eng"
-    if any(w in text for w in ["security", "firewall log", "acl check", "threat", "vulnerability", "audit", "brute force", "attack"]):
-        return "sec_analyst"
-    if any(w in text for w in ["aws", "azure", "gcp", "vpc", "vnet", "cloud", "security group"]):
-        return "cloud_eng"
-    if any(w in text for w in ["sop", "mop", "runbook", "rca", "incident report", "document"]):
-        return "doc_specialist"
-    if any(w in text for w in ["configure vlan", "ansible", "playbook", "self-healing", "deploy config"]):
-        return "auto_eng"
-    if any(w in text for w in ["active directory", "ad", "iis", "hyper-v", "windows server", "winrm", "powershell"]):
-        return "win_admin"
-    if any(w in text for w in ["linux", "nginx", "apache", "docker", "kubernetes", "k8s", "ssh", "cpu"]):
-        return "lin_admin"
-    if any(w in text for w in ["vpn", "vlan", "bgp", "ospf", "switch", "router", "route", "ping", "traceroute"]):
-        return "net_genius"
-    return None
+# Auto-routing classifier – Phase 3: delegates to IntentRouter for multi-signal scoring
+def auto_route_intent(prompt_text, conversation_history=None, active_incidents=None, user_role=None):
+    """
+    Intelligent intent routing using multi-signal keyword scoring.
+    Delegates to the Phase 3 IntentRouter for accurate persona selection.
+    Backward compatible: returns a persona key string or None.
+    """
+    try:
+        from ai_engine.intent_router import auto_route_intent_enhanced
+        return auto_route_intent_enhanced(
+            prompt_text=prompt_text,
+            conversation_history=conversation_history,
+            active_incidents=active_incidents,
+            user_role=user_role,
+        )
+    except Exception:
+        # Fallback to legacy keyword matching if import fails
+        text = prompt_text.lower()
+        if any(w in text for w in ["health check", "daily check", "noc", "zabbix", "prtg", "nagios", "solarwinds", "sla"]):
+            return "noc_eng"
+        if any(w in text for w in ["database", "sql", "mysql", "postgresql", "mongo", "redis"]):
+            return "db_specialist"
+        if any(w in text for w in ["devops", "pipeline", "cicd", "kubernetes", "helm", "argocd"]):
+            return "devops_eng"
+        if any(w in text for w in ["security", "firewall log", "acl check", "threat", "vulnerability", "audit", "brute force", "attack"]):
+            return "sec_analyst"
+        if any(w in text for w in ["aws", "azure", "gcp", "vpc", "vnet", "cloud", "security group"]):
+            return "cloud_eng"
+        if any(w in text for w in ["sop", "mop", "runbook", "rca", "incident report", "document"]):
+            return "doc_specialist"
+        if any(w in text for w in ["configure vlan", "ansible", "playbook", "self-healing", "deploy config"]):
+            return "auto_eng"
+        if any(w in text for w in ["active directory", "ad", "iis", "hyper-v", "windows server", "winrm", "powershell"]):
+            return "win_admin"
+        if any(w in text for w in ["linux", "nginx", "apache", "docker", "k8s", "ssh", "cpu"]):
+            return "lin_admin"
+        if any(w in text for w in ["vpn", "vlan", "bgp", "ospf", "switch", "router", "route", "ping", "traceroute"]):
+            return "net_genius"
+        return None
 
 # Initialize Gemini
 api_key = os.getenv("GEMINI_API_KEY")
@@ -1286,3 +1317,108 @@ async def generate_streaming_response(
         "scenarioKey": scenario_key
     }
 
+
+# ========================================================
+# PHASE 3 – STRUCTURED INTELLIGENCE FUNCTIONS
+# ========================================================
+
+def generate_rca_structured(
+    alert_type: str,
+    device_name: str,
+    incident_id: str = "",
+    telemetry=None,
+    alarms=None,
+    incidents=None,
+    topology=None,
+    uploaded_config: str = None,
+    uploaded_logs: str = None,
+    db=None,
+    as_markdown: bool = True,
+) -> str:
+    """
+    Generate a structured, evidence-based Root Cause Analysis using the Phase 3 RCA Engine.
+    Returns a formatted markdown RCA report string.
+    """
+    try:
+        from ai_engine.rca_engine import RCAEngine
+        rca = RCAEngine.generate(
+            alert_type=alert_type,
+            device_name=device_name,
+            incident_id=incident_id,
+            telemetry=telemetry,
+            alarms=alarms,
+            incidents=incidents,
+            topology=topology,
+            uploaded_config=uploaded_config,
+            uploaded_logs=uploaded_logs,
+            db=db,
+        )
+        if as_markdown:
+            return RCAEngine.format_as_markdown(rca)
+        return str(rca)
+    except Exception as e:
+        logger.error(f"RCA Engine error: {e}")
+        # Fallback to legacy report generator
+        import report_generator
+        return report_generator.ReportGenerator.generate_rca(
+            scenario_key=alert_type,
+            incident_details={"device": device_name, "root_cause": "Under investigation.", "cli_fix": ""}
+        )
+
+
+def generate_mop_enhanced(
+    scenario_key: str,
+    command_patch: str,
+    target_device: str,
+    risk_assessment=None,
+    incident_id: str = None,
+    engineer_name: str = None,
+    as_markdown: bool = True,
+) -> str:
+    """
+    Generate an enterprise-grade Method of Procedure using the Phase 3 MOP Engine.
+    Returns a formatted markdown MOP document string.
+    """
+    try:
+        from ai_engine.mop_engine import MOPEngine
+        mop = MOPEngine.generate(
+            scenario_key=scenario_key,
+            command_patch=command_patch,
+            target_device=target_device,
+            risk_assessment=risk_assessment,
+            incident_id=incident_id,
+            engineer_name=engineer_name,
+        )
+        if as_markdown:
+            return MOPEngine.format_as_markdown(mop)
+        return str(mop)
+    except Exception as e:
+        logger.error(f"MOP Engine error: {e}")
+        # Fallback to legacy report generator
+        import report_generator
+        return report_generator.ReportGenerator.generate_mop(scenario_key, command_patch, target_device)
+
+
+def assess_risk(
+    commands_text: str,
+    device_name: str = "Unknown",
+    target_devices=None,
+    as_markdown: bool = True,
+) -> str:
+    """
+    Perform a pre-flight risk assessment on configuration commands.
+    Returns a formatted markdown risk assessment report string.
+    """
+    try:
+        from ai_engine.risk_engine import RiskEngine
+        risk = RiskEngine.assess(
+            commands_text=commands_text,
+            device_name=device_name,
+            target_devices=target_devices,
+        )
+        if as_markdown:
+            return RiskEngine.format_as_markdown(risk)
+        return str(risk)
+    except Exception as e:
+        logger.error(f"Risk Engine error: {e}")
+        return f"Risk assessment temporarily unavailable. Error: {e}"

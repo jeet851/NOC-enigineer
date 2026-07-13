@@ -109,3 +109,100 @@ class AIEngineWrapper:
     @staticmethod
     def find_matching_scenario(text: str) -> str:
         return ai_engine_root.find_matching_scenario(text)
+
+    # ------------------------------------------------------------------
+    # Phase 3 – Structured Intelligence Methods
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def generate_rca_structured(
+        alert_type: str,
+        device_name: str,
+        incident_id: str = "",
+        telemetry=None,
+        alarms=None,
+        incidents=None,
+        topology=None,
+        uploaded_config: str = None,
+        uploaded_logs: str = None,
+        db=None,
+        as_markdown: bool = True,
+    ) -> str:
+        """Generate structured RCA using Phase 3 RCA Engine."""
+        return ai_engine_root.generate_rca_structured(
+            alert_type=alert_type,
+            device_name=device_name,
+            incident_id=incident_id,
+            telemetry=telemetry,
+            alarms=alarms,
+            incidents=incidents,
+            topology=topology,
+            uploaded_config=uploaded_config,
+            uploaded_logs=uploaded_logs,
+            db=db,
+            as_markdown=as_markdown,
+        )
+
+    @staticmethod
+    def generate_mop_enhanced(
+        scenario_key: str,
+        command_patch: str,
+        target_device: str,
+        risk_assessment=None,
+        incident_id: str = None,
+        engineer_name: str = None,
+        as_markdown: bool = True,
+    ) -> str:
+        """Generate enterprise-grade MOP using Phase 3 MOP Engine."""
+        return ai_engine_root.generate_mop_enhanced(
+            scenario_key=scenario_key,
+            command_patch=command_patch,
+            target_device=target_device,
+            risk_assessment=risk_assessment,
+            incident_id=incident_id,
+            engineer_name=engineer_name,
+            as_markdown=as_markdown,
+        )
+
+    @staticmethod
+    def assess_risk(
+        commands_text: str,
+        device_name: str = "Unknown",
+        target_devices=None,
+        as_markdown: bool = True,
+    ) -> str:
+        """Pre-flight risk assessment using Phase 3 Risk Engine."""
+        return ai_engine_root.assess_risk(
+            commands_text=commands_text,
+            device_name=device_name,
+            target_devices=target_devices,
+            as_markdown=as_markdown,
+        )
+
+    @staticmethod
+    def get_recommendations(
+        telemetry=None,
+        active_incidents=None,
+        active_alarms=None,
+        devices=None,
+        db=None,
+    ) -> dict:
+        """Generate proactive AI recommendations using Phase 3 Recommendations Engine."""
+        try:
+            from ai_engine.recommendations_engine import RecommendationsEngine
+            return RecommendationsEngine.generate(
+                telemetry=telemetry,
+                active_incidents=active_incidents,
+                active_alarms=active_alarms,
+                devices=devices,
+                db=db,
+            )
+        except Exception as e:
+            return {
+                "recommendations": [],
+                "summary": f"Recommendations engine unavailable: {e}",
+                "generated_at": "",
+                "total_count": 0,
+                "critical_count": 0,
+                "warning_count": 0,
+            }
